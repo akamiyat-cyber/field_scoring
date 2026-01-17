@@ -7,7 +7,7 @@
     <meta name="theme-color" content="#0f172a">
     <link rel="apple-touch-icon" href="icon.png">
     
-    <title>FieldEval Pro v4.4</title>
+    <title>FieldEval Pro v4.5</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
@@ -151,7 +151,7 @@
 </div>
 
 <footer class="bg-gray-200 dark:bg-black py-2 text-center text-[10px] text-gray-500 dark:text-gray-600 font-bold shrink-0 z-50">
-    Created by Takehiro Kamiya (University of Tokyo) | v4.4
+    Created by Takehiro Kamiya (University of Tokyo) | v4.5
 </footer>
 
 <div id="shareModal" class="hidden fixed inset-0 bg-black/80 z-[90] flex items-center justify-center p-4 backdrop-blur-sm">
@@ -160,23 +160,26 @@
         <p class="text-xs text-gray-500 mb-6 font-bold">Choose a format to share or save.</p>
         
         <div class="space-y-3">
-            <button onclick="shareCSV()" class="w-full bg-green-500 hover:bg-green-600 text-white py-4 rounded-xl font-bold flex items-center justify-center gap-3 transition-colors shadow-lg">
+            <button onclick="shareCSV()" class="w-full bg-green-500 hover:bg-green-600 text-white py-3 rounded-xl font-bold flex items-center justify-center gap-3 transition-colors shadow-lg">
                 <span class="text-xl">📊</span>
                 <div class="text-left">
                     <div class="text-sm leading-none">Excel / CSV</div>
-                    <div class="text-[10px] opacity-80 font-normal">For data analysis</div>
+                    <div class="text-[10px] opacity-80 font-normal">Current Field Data</div>
                 </div>
             </button>
+
+            <div class="grid grid-cols-2 gap-3">
+                <button onclick="backupData('current')" class="bg-blue-500 hover:bg-blue-600 text-white py-3 rounded-xl font-bold flex flex-col items-center justify-center gap-1 transition-colors shadow-lg">
+                    <span class="text-xl">📦</span>
+                    <div class="text-[10px] leading-tight">JSON<br>(Current Field)</div>
+                </button>
+                <button onclick="backupData('all')" class="bg-slate-500 hover:bg-slate-600 text-white py-3 rounded-xl font-bold flex flex-col items-center justify-center gap-1 transition-colors shadow-lg">
+                    <span class="text-xl">🗃️</span>
+                    <div class="text-[10px] leading-tight">JSON<br>(All Data)</div>
+                </button>
+            </div>
             
-            <button onclick="backupAllData()" class="w-full bg-blue-500 hover:bg-blue-600 text-white py-4 rounded-xl font-bold flex items-center justify-center gap-3 transition-colors shadow-lg">
-                <span class="text-xl">📦</span>
-                <div class="text-left">
-                    <div class="text-sm leading-none">JSON Backup</div>
-                    <div class="text-[10px] opacity-80 font-normal">For cloning / restore</div>
-                </div>
-            </button>
-            
-            <button onclick="exportMapImage()" class="w-full bg-indigo-500 hover:bg-indigo-600 text-white py-4 rounded-xl font-bold flex items-center justify-center gap-3 transition-colors shadow-lg">
+            <button onclick="exportMapImage()" class="w-full bg-indigo-500 hover:bg-indigo-600 text-white py-3 rounded-xl font-bold flex items-center justify-center gap-3 transition-colors shadow-lg">
                 <span class="text-xl">🖼️</span>
                 <div class="text-left">
                     <div class="text-sm leading-none">Map Image</div>
@@ -211,10 +214,10 @@
                 <label class="text-xs text-slate-500 font-bold block mb-2">Data Restoration</label>
                 <div class="grid grid-cols-1 gap-2">
                     <label class="bg-white dark:bg-slate-700 py-3 rounded-lg border border-slate-300 dark:border-slate-600 text-xs shadow-sm hover:bg-slate-50 text-center cursor-pointer block font-bold text-slate-600 dark:text-slate-300">
-                        ♻️ Restore from JSON File
-                        <input type="file" accept=".json" class="hidden" onchange="restoreAllData(event)">
+                        ♻️ Restore / Import (JSON)
+                        <input type="file" accept=".json" class="hidden" onchange="restoreData(event)">
                     </label>
-                    <p class="text-[9px] text-gray-400 text-center">To backup/share, use the "Share" button on the main screen.</p>
+                    <p class="text-[9px] text-gray-400 text-center">Auto-detects: "Single Field" (Merge) or "Full Backup" (Replace)</p>
                 </div>
             </div>
 
@@ -752,21 +755,40 @@
         r.readAsText(file);
     }
 
-    /* SHARE FUNCTIONS (v4.4) */
+    /* SHARE FUNCTIONS (v4.5 UPDATED) */
     function openShareMenu() {
         document.getElementById('shareModal').classList.remove('hidden');
     }
 
-    async function backupAllData() {
-        const json = JSON.stringify(state, null, 2);
-        const fileName = `FieldEval_BACKUP_${new Date().toISOString().slice(0,10)}.json`;
+    async function backupData(mode) {
+        let data, fileName, text;
+        
+        if (mode === 'current') {
+            // Single Field Backup Structure
+            const fname = state.currentField;
+            data = {
+                type: 'field_eval_single',
+                name: fname,
+                content: state.fields[fname],
+                exportedAt: new Date().toISOString()
+            };
+            fileName = `FieldEval_${fname}_${new Date().toISOString().slice(0,10)}.json`;
+            text = `Backup for field: ${fname}`;
+        } else {
+            // Full Backup
+            data = state;
+            fileName = `FieldEval_FULL_BACKUP_${new Date().toISOString().slice(0,10)}.json`;
+            text = 'Full system backup';
+        }
+
+        const json = JSON.stringify(data, null, 2);
         const file = new File([json], fileName, {type: 'application/json'});
 
         if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
             try {
                 await navigator.share({
                     title: 'FieldEval Backup',
-                    text: 'Backup JSON',
+                    text: text,
                     files: [file]
                 });
                 document.getElementById('shareModal').classList.add('hidden');
@@ -785,21 +807,52 @@
         document.getElementById('shareModal').classList.add('hidden');
     }
 
-    function restoreAllData(e) {
+    // Smart Restore (v4.5)
+    function restoreData(e) {
         const file = e.target.files[0];
         if(!file) return;
-        if(!confirm("⚠️ CAUTION: This will overwrite ALL current data with the backup file. Continue?")) {
-            e.target.value = '';
-            return;
-        }
+        
         const r = new FileReader();
         r.onload = (ev) => {
             try {
                 const parsed = JSON.parse(ev.target.result);
-                if(!parsed.fields || !parsed.currentField) throw new Error("Invalid format");
-                localStorage.setItem('field_eval_v4', JSON.stringify(parsed));
-                alert("Restore successful! Reloading...");
-                location.reload();
+                
+                // Case A: Single Field Import (Merge)
+                if (parsed.type === 'field_eval_single' && parsed.content) {
+                    const fname = parsed.name;
+                    if(state.fields[fname]) {
+                        if(!confirm(`Field "${fname}" already exists.\nOverwrite with imported data?`)) {
+                            e.target.value = '';
+                            return;
+                        }
+                    } else {
+                        if(!confirm(`Import new field "${fname}"?`)) {
+                            e.target.value = '';
+                            return;
+                        }
+                    }
+                    state.fields[fname] = parsed.content;
+                    state.currentField = fname;
+                    saveState();
+                    alert(`Imported "${fname}" successfully!`);
+                    location.reload();
+                    return;
+                }
+                
+                // Case B: Full Backup Restore (Replace)
+                if (parsed.fields && parsed.currentField) {
+                    if(!confirm("⚠️ CAUTION: Restoring a FULL BACKUP.\nThis will REPLACE ALL existing data. Continue?")) {
+                        e.target.value = '';
+                        return;
+                    }
+                    localStorage.setItem('field_eval_v4', JSON.stringify(parsed));
+                    alert("Restore successful! Reloading...");
+                    location.reload();
+                    return;
+                }
+
+                throw new Error("Unknown file format");
+
             } catch(err) {
                 alert("Error: Invalid JSON file.");
                 console.error(err);
