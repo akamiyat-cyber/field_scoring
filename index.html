@@ -7,7 +7,7 @@
     <meta name="theme-color" content="#0f172a">
     <link rel="apple-touch-icon" href="icon.png">
     
-    <title>FieldEval Pro v4.3</title>
+    <title>FieldEval Pro v4.4</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
@@ -139,7 +139,7 @@
                 <input type="file" accept=".csv,.txt" class="hidden" onchange="importSystemNames(event)">
             </label>
 
-            <button onclick="shareData()" class="p-2 rounded-lg bg-blue-600 text-white font-bold text-xs shadow-lg flex items-center gap-1">
+            <button onclick="openShareMenu()" class="p-2 rounded-lg bg-blue-600 text-white font-bold text-xs shadow-lg flex items-center gap-1">
                 <span>📤</span> Share
             </button>
         </div>
@@ -151,8 +151,43 @@
 </div>
 
 <footer class="bg-gray-200 dark:bg-black py-2 text-center text-[10px] text-gray-500 dark:text-gray-600 font-bold shrink-0 z-50">
-    Created by Takehiro Kamiya (University of Tokyo) | v4.3
+    Created by Takehiro Kamiya (University of Tokyo) | v4.4
 </footer>
+
+<div id="shareModal" class="hidden fixed inset-0 bg-black/80 z-[90] flex items-center justify-center p-4 backdrop-blur-sm">
+    <div class="bg-white dark:bg-dark-surface p-6 rounded-2xl w-full max-w-sm shadow-2xl text-center transform transition-all">
+        <h3 class="font-black text-xl mb-4 text-slate-900 dark:text-white">📤 Export & Share</h3>
+        <p class="text-xs text-gray-500 mb-6 font-bold">Choose a format to share or save.</p>
+        
+        <div class="space-y-3">
+            <button onclick="shareCSV()" class="w-full bg-green-500 hover:bg-green-600 text-white py-4 rounded-xl font-bold flex items-center justify-center gap-3 transition-colors shadow-lg">
+                <span class="text-xl">📊</span>
+                <div class="text-left">
+                    <div class="text-sm leading-none">Excel / CSV</div>
+                    <div class="text-[10px] opacity-80 font-normal">For data analysis</div>
+                </div>
+            </button>
+            
+            <button onclick="backupAllData()" class="w-full bg-blue-500 hover:bg-blue-600 text-white py-4 rounded-xl font-bold flex items-center justify-center gap-3 transition-colors shadow-lg">
+                <span class="text-xl">📦</span>
+                <div class="text-left">
+                    <div class="text-sm leading-none">JSON Backup</div>
+                    <div class="text-[10px] opacity-80 font-normal">For cloning / restore</div>
+                </div>
+            </button>
+            
+            <button onclick="exportMapImage()" class="w-full bg-indigo-500 hover:bg-indigo-600 text-white py-4 rounded-xl font-bold flex items-center justify-center gap-3 transition-colors shadow-lg">
+                <span class="text-xl">🖼️</span>
+                <div class="text-left">
+                    <div class="text-sm leading-none">Map Image</div>
+                    <div class="text-[10px] opacity-80 font-normal">Save as PNG</div>
+                </div>
+            </button>
+        </div>
+        
+        <button onclick="document.getElementById('shareModal').classList.add('hidden')" class="mt-6 py-2 px-6 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-400 font-bold text-xs hover:bg-gray-200">Cancel</button>
+    </div>
+</div>
 
 <div id="statsModal" class="hidden fixed inset-0 bg-black/80 z-[70] flex flex-col p-4 backdrop-blur-sm">
     <div class="bg-white dark:bg-dark-surface rounded-2xl shadow-2xl flex-1 max-w-2xl mx-auto w-full flex flex-col overflow-hidden">
@@ -173,18 +208,13 @@
         
         <div class="space-y-4 font-bold text-sm">
             <div class="bg-slate-100 dark:bg-slate-800 p-3 rounded-xl border border-slate-200 dark:border-slate-700">
-                <label class="text-xs text-slate-500 font-bold block mb-2">Data Management</label>
-                <div class="grid grid-cols-2 gap-2">
-                    <button onclick="backupAllData()" class="bg-white dark:bg-slate-700 py-2 rounded-lg border border-slate-300 dark:border-slate-600 text-xs shadow-sm hover:bg-slate-50">
-                        📦 Backup (JSON)
-                    </button>
-                    <label class="bg-white dark:bg-slate-700 py-2 rounded-lg border border-slate-300 dark:border-slate-600 text-xs shadow-sm hover:bg-slate-50 text-center cursor-pointer block">
-                        ♻️ Restore (JSON)
+                <label class="text-xs text-slate-500 font-bold block mb-2">Data Restoration</label>
+                <div class="grid grid-cols-1 gap-2">
+                    <label class="bg-white dark:bg-slate-700 py-3 rounded-lg border border-slate-300 dark:border-slate-600 text-xs shadow-sm hover:bg-slate-50 text-center cursor-pointer block font-bold text-slate-600 dark:text-slate-300">
+                        ♻️ Restore from JSON File
                         <input type="file" accept=".json" class="hidden" onchange="restoreAllData(event)">
                     </label>
-                    <button onclick="exportMapImage()" class="col-span-2 bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200 py-2 rounded-lg border border-indigo-200 dark:border-indigo-800 text-xs font-bold hover:opacity-80">
-                        🖼️ Save Map Image
-                    </button>
+                    <p class="text-[9px] text-gray-400 text-center">To backup/share, use the "Share" button on the main screen.</p>
                 </div>
             </div>
 
@@ -722,7 +752,11 @@
         r.readAsText(file);
     }
 
-    /* Backup & Restore (v4.3 Modified) */
+    /* SHARE FUNCTIONS (v4.4) */
+    function openShareMenu() {
+        document.getElementById('shareModal').classList.remove('hidden');
+    }
+
     async function backupAllData() {
         const json = JSON.stringify(state, null, 2);
         const fileName = `FieldEval_BACKUP_${new Date().toISOString().slice(0,10)}.json`;
@@ -732,12 +766,13 @@
             try {
                 await navigator.share({
                     title: 'FieldEval Backup',
-                    text: 'Backup data JSON',
+                    text: 'Backup JSON',
                     files: [file]
                 });
+                document.getElementById('shareModal').classList.add('hidden');
                 return;
             } catch (err) {
-                console.log('Share canceled or failed', err);
+                console.log('Share canceled', err);
             }
         }
 
@@ -747,6 +782,7 @@
         a.download = fileName;
         a.click();
         URL.revokeObjectURL(url);
+        document.getElementById('shareModal').classList.add('hidden');
     }
 
     function restoreAllData(e) {
@@ -773,6 +809,7 @@
     }
 
     function exportMapImage() {
+        document.getElementById('shareModal').classList.add('hidden');
         const element = document.getElementById('fieldMap');
         const originalTransform = element.style.transform;
         element.style.transform = 'scale(1)';
@@ -786,7 +823,7 @@
         });
     }
 
-    function shareData() {
+    function shareCSV() {
         const fn = state.currentField;
         const f = state.fields[fn];
         const m = f.meta || {};
@@ -816,6 +853,7 @@
             a.click();
             alert("File downloaded. Please attach it to your email manually.");
         }
+        document.getElementById('shareModal').classList.add('hidden');
     }
 
     function openStats() {
