@@ -7,8 +7,9 @@
     <meta name="theme-color" content="#0f172a">
     <link rel="apple-touch-icon" href="icon.png">
     
-    <title>FieldEval Pro v4.0</title>
+    <title>FieldEval Pro v4.3</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
     <script>
         tailwind.config = {
@@ -24,13 +25,12 @@
         }
     </script>
     <style>
-        /* 1本指スクロールを許可しつつ、ピンチ操作はJSで制御 */
         body { overscroll-behavior: none; }
         
         #mapContainer {
             overflow: auto;
             width: 100%;
-            height: calc(100vh - 160px); /* タブ追加分調整 */
+            height: calc(100vh - 160px);
             touch-action: pan-x pan-y;
             position: relative;
             background-color: #f3f4f6;
@@ -72,7 +72,6 @@
         .dark .plant-cell { background: #1e293b; border-color: #334155; color: white; }
         .selected { outline: 4px solid #3b82f6 !important; transform: scale(1.1); z-index: 20; box-shadow: 0 10px 25px rgba(0,0,0,0.3); }
 
-        /* ヒストグラムバー */
         .bar-container { display: flex; align-items: flex-end; height: 60px; gap: 2px; }
         .bar { flex: 1; background: #3b82f6; border-radius: 2px 2px 0 0; min-width: 8px; position: relative; }
         .bar:hover::after { content: attr(data-count); position: absolute; top: -20px; left: 0; right: 0; text-align: center; font-size: 10px; font-weight: bold; color: #3b82f6; }
@@ -84,18 +83,15 @@
         .dark .score-btn { background: #0f172a; border-color: #334155; color: #cbd5e1; }
         .score-input:checked + .score-btn { background: #2563eb; color: white; border-color: #2563eb; }
         
-        /* 特別ボタン（欠株・評価不能・リセット） */
         .special-btn { font-size: 0.8rem; border-color: #fca5a5; color: #dc2626; background: #fef2f2; }
         .score-input:checked + .special-btn { background: #dc2626; color: white; border-color: #dc2626; }
         
         .reset-btn { font-size: 0.8rem; border-color: #cbd5e1; color: #64748b; background: #f1f5f9; }
         .score-input:checked + .reset-btn { background: #64748b; color: white; border-color: #64748b; }
 
-        /* 写真プレビュー */
         .photo-thumb { width: 60px; height: 60px; object-fit: cover; border-radius: 8px; border: 2px solid #ccc; display: none; }
         .photo-thumb.active { display: block; }
 
-        /* タブデザイン */
         .tab-container {
             display: flex; gap: 4px; overflow-x: auto; padding: 4px;
             scrollbar-width: none;
@@ -143,7 +139,9 @@
                 <input type="file" accept=".csv,.txt" class="hidden" onchange="importSystemNames(event)">
             </label>
 
-            <button onclick="exportData()" class="p-2 rounded-lg bg-blue-600 text-white font-bold text-xs shadow-lg">Export</button>
+            <button onclick="shareData()" class="p-2 rounded-lg bg-blue-600 text-white font-bold text-xs shadow-lg flex items-center gap-1">
+                <span>📤</span> Share
+            </button>
         </div>
     </div>
 </div>
@@ -153,14 +151,14 @@
 </div>
 
 <footer class="bg-gray-200 dark:bg-black py-2 text-center text-[10px] text-gray-500 dark:text-gray-600 font-bold shrink-0 z-50">
-    Created by Takehiro Kamiya (University of Tokyo) | Use at your own risk.
+    Created by Takehiro Kamiya (University of Tokyo) | v4.3
 </footer>
 
 <div id="statsModal" class="hidden fixed inset-0 bg-black/80 z-[70] flex flex-col p-4 backdrop-blur-sm">
     <div class="bg-white dark:bg-dark-surface rounded-2xl shadow-2xl flex-1 max-w-2xl mx-auto w-full flex flex-col overflow-hidden">
         <div class="p-4 border-b dark:border-dark-border flex justify-between items-center">
             <h3 class="font-black text-xl">📊 System Analysis</h3>
-            <button onclick="document.getElementById('statsModal').classList.add('hidden')" class="text-2xl font-bold text-gray-400">&times;</button>
+            <button onclick="document.getElementById('statsModal').classList.add('hidden')" class="text-2xl font-bold text-gray-400">×</button>
         </div>
         <div id="statsContent" class="flex-1 overflow-y-auto p-4 space-y-6"></div>
     </div>
@@ -168,33 +166,60 @@
 
 <div id="configModal" class="hidden fixed inset-0 bg-black/80 z-[80] flex items-center justify-center p-4 backdrop-blur-sm">
     <div class="bg-white dark:bg-dark-surface p-6 rounded-2xl w-full max-w-sm shadow-2xl max-h-[90vh] overflow-y-auto">
-        <h3 class="font-black text-2xl mb-4">Field Settings</h3>
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="font-black text-2xl">Settings</h3>
+            <button onclick="document.getElementById('configModal').classList.add('hidden')" class="text-gray-400 font-bold text-xl">×</button>
+        </div>
         
         <div class="space-y-4 font-bold text-sm">
+            <div class="bg-slate-100 dark:bg-slate-800 p-3 rounded-xl border border-slate-200 dark:border-slate-700">
+                <label class="text-xs text-slate-500 font-bold block mb-2">Data Management</label>
+                <div class="grid grid-cols-2 gap-2">
+                    <button onclick="backupAllData()" class="bg-white dark:bg-slate-700 py-2 rounded-lg border border-slate-300 dark:border-slate-600 text-xs shadow-sm hover:bg-slate-50">
+                        📦 Backup (JSON)
+                    </button>
+                    <label class="bg-white dark:bg-slate-700 py-2 rounded-lg border border-slate-300 dark:border-slate-600 text-xs shadow-sm hover:bg-slate-50 text-center cursor-pointer block">
+                        ♻️ Restore (JSON)
+                        <input type="file" accept=".json" class="hidden" onchange="restoreAllData(event)">
+                    </label>
+                    <button onclick="exportMapImage()" class="col-span-2 bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200 py-2 rounded-lg border border-indigo-200 dark:border-indigo-800 text-xs font-bold hover:opacity-80">
+                        🖼️ Save Map Image
+                    </button>
+                </div>
+            </div>
+
+            <div class="bg-purple-50 dark:bg-purple-900/20 p-3 rounded-xl border border-purple-100 dark:border-purple-800">
+                <label class="text-xs text-purple-600 font-bold block mb-2">📊 Compare Mode</label>
+                <select id="cfg_compareTarget" class="w-full bg-white dark:bg-black/20 p-2 rounded-lg text-xs font-bold border border-purple-200 dark:border-purple-800">
+                    <option value="">(None)</option>
+                </select>
+                <p class="text-[10px] text-gray-400 mt-1">Select a past field to see its data while scoring.</p>
+            </div>
+
             <div>
-                <label class="text-xs text-gray-500">Field Name (フィールド名)</label>
+                <label class="text-xs text-gray-500">Field Name</label>
                 <input type="text" id="cfg_fieldName" class="w-full bg-gray-100 dark:bg-black/20 p-2 rounded-lg font-bold border border-gray-300 dark:border-gray-600">
             </div>
 
             <div class="grid grid-cols-2 gap-4">
                 <div class="col-span-2">
-                    <label class="text-xs text-gray-500">Survey Date (調査日)</label>
+                    <label class="text-xs text-gray-500">Survey Date</label>
                     <input type="date" id="meta_date" class="w-full bg-gray-100 dark:bg-black/20 p-2 rounded-lg font-bold">
                 </div>
                 <div class="col-span-2">
-                    <label class="text-xs text-gray-500">Surveyor (調査者)</label>
+                    <label class="text-xs text-gray-500">Surveyor</label>
                     <input type="text" id="meta_surveyor" class="w-full bg-gray-100 dark:bg-black/20 p-2 rounded-lg font-bold">
                 </div>
                 <div class="col-span-2">
-                    <label class="text-xs text-gray-500">Crop Name (作物名)</label>
+                    <label class="text-xs text-gray-500">Crop Name</label>
                     <input type="text" id="meta_crop" class="w-full bg-gray-100 dark:bg-black/20 p-2 rounded-lg font-bold">
                 </div>
             </div>
 
             <div class="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-xl border border-blue-100 dark:border-blue-800">
-                <label class="text-xs text-blue-500 font-bold block mb-2">Field Location (圃場の場所)</label>
+                <label class="text-xs text-blue-500 font-bold block mb-2">Field Location</label>
                 <div class="flex gap-2">
-                    <button onclick="setCurrentLocation()" class="bg-blue-600 text-white px-3 py-2 rounded-lg text-xs font-bold">📍 Get Current GPS</button>
+                    <button onclick="setCurrentLocation()" class="bg-blue-600 text-white px-3 py-2 rounded-lg text-xs font-bold">📍 Get GPS</button>
                     <a id="mapsLink" href="#" target="_blank" class="hidden text-blue-600 text-xs font-bold underline flex items-center">Open Maps ↗</a>
                 </div>
                 <input type="hidden" id="meta_lat"><input type="hidden" id="meta_lon">
@@ -207,9 +232,9 @@
             </label>
             
             <div class="grid grid-cols-2 gap-4 border-t pt-4 dark:border-gray-700">
-                <div><label class="text-gray-400 text-xs">Rows (畝数)</label><input type="number" id="cfg_rows" class="w-full bg-gray-100 dark:bg-black/20 p-2 rounded-lg text-center font-black"></div>
-                <div><label class="text-gray-400 text-xs">Lines (条数)</label><input type="number" id="cfg_lines" class="w-full bg-gray-100 dark:bg-black/20 p-2 rounded-lg text-center font-black"></div>
-                <div><label class="text-gray-400 text-xs">Plants (個体数)</label><input type="number" id="cfg_plants" class="w-full bg-gray-100 dark:bg-black/20 p-2 rounded-lg text-center font-black"></div>
+                <div><label class="text-gray-400 text-xs">Rows</label><input type="number" id="cfg_rows" class="w-full bg-gray-100 dark:bg-black/20 p-2 rounded-lg text-center font-black"></div>
+                <div><label class="text-gray-400 text-xs">Lines</label><input type="number" id="cfg_lines" class="w-full bg-gray-100 dark:bg-black/20 p-2 rounded-lg text-center font-black"></div>
+                <div><label class="text-gray-400 text-xs">Plants</label><input type="number" id="cfg_plants" class="w-full bg-gray-100 dark:bg-black/20 p-2 rounded-lg text-center font-black"></div>
                 <div><label class="text-gray-400 text-xs">Max Score</label><input type="number" id="cfg_maxScore" class="w-full bg-gray-100 dark:bg-black/20 p-2 rounded-lg text-center font-black"></div>
             </div>
             
@@ -223,8 +248,7 @@
             </div>
         </div>
         <div class="mt-6 flex gap-3">
-            <button onclick="document.getElementById('configModal').classList.add('hidden')" class="flex-1 py-4 font-bold text-gray-400">Cancel</button>
-            <button onclick="saveFieldConfig()" class="flex-1 bg-blue-600 text-white py-4 rounded-xl font-bold">Save</button>
+            <button onclick="saveFieldConfig()" class="flex-1 bg-blue-600 text-white py-4 rounded-xl font-bold">Save & Close</button>
         </div>
     </div>
 </div>
@@ -232,7 +256,7 @@
 <div id="inputModal" class="fixed inset-0 z-[100] hidden flex flex-col justify-end sm:justify-center items-center bg-black/60 backdrop-blur-sm">
     <div class="absolute inset-0" onclick="closeModal()"></div>
     <div class="modal-enter relative w-full sm:w-[400px] bg-white dark:bg-dark-surface sm:rounded-3xl rounded-t-3xl p-6 shadow-2xl border-t border-white/20">
-        <div class="flex justify-between items-start mb-4">
+        <div class="flex justify-between items-start mb-2">
             <div class="w-full mr-4">
                 <h2 id="currentIdLabel" class="text-4xl font-black text-blue-600 dark:text-blue-400 leading-none">--</h2>
                 <div class="mt-2 flex items-center gap-2">
@@ -240,7 +264,21 @@
                     <input type="color" id="currentSystemColor" class="w-8 h-8 rounded cursor-pointer border-0 p-0" title="Change Color">
                 </div>
             </div>
-            <button onclick="closeModal()" class="w-10 h-10 shrink-0 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center font-bold text-xl">&times;</button>
+            <button onclick="closeModal()" class="w-10 h-10 shrink-0 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center font-bold text-xl">×</button>
+        </div>
+
+        <div id="compareInfo" class="hidden mb-4 bg-purple-50 dark:bg-purple-900/20 p-3 rounded-xl border border-purple-100 dark:border-purple-800 flex items-start gap-3">
+            <div class="text-xl">📊</div>
+            <div class="flex-1">
+                <div class="flex justify-between items-baseline">
+                    <span class="text-[10px] font-bold text-purple-600 dark:text-purple-300 uppercase tracking-wider">Previous Data</span>
+                    <span id="compareDate" class="text-[10px] text-gray-400"></span>
+                </div>
+                <div class="flex items-baseline gap-2 mt-1">
+                    <span id="compareScore" class="text-2xl font-black text-gray-800 dark:text-white"></span>
+                    <span id="compareComment" class="text-xs text-gray-500 italic truncate max-w-[150px]"></span>
+                </div>
+            </div>
         </div>
 
         <div id="scoreGrid" class="grid grid-cols-3 gap-3 mb-6 max-h-[30vh] overflow-y-auto"></div>
@@ -261,10 +299,10 @@
         <div class="flex gap-3">
             <button onclick="moveWithoutSave(-1)" class="flex-1 bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-200 py-4 rounded-2xl font-black text-sm active:scale-95 transition-transform">
                 <span class="block text-xs opacity-50 font-normal">NO SAVE</span>
-                &lt; BACK
+                < BACK
             </button>
             <button onclick="saveAndMove(1)" class="flex-[2] bg-blue-600 text-white py-4 rounded-2xl font-black text-xl shadow-xl active:scale-95 transition-transform">
-                SAVE & NEXT &gt;
+                SAVE & NEXT >
             </button>
         </div>
     </div>
@@ -273,9 +311,7 @@
 <script>
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-            navigator.serviceWorker.register('./sw.js')
-                .then(reg => console.log('SW registered'))
-                .catch(err => console.log('SW fail', err));
+            navigator.serviceWorker.register('./sw.js').catch(err => console.log('SW fail', err));
         });
     }
 
@@ -284,6 +320,7 @@
         gpsEnabled: false,
         theme: 'light',
         systemColors: {},
+        compareTarget: null, 
         fields: {
             'Field 1': { 
                 config: {rows:4, lines:2, plants:5, maxScore:5}, 
@@ -294,7 +331,7 @@
         }
     };
     
-    // データ構造のマイグレーション（古いバージョンからの移行用）
+    // Migration
     if(!state.fields[state.currentField].meta) {
         Object.keys(state.fields).forEach(k => {
             if(!state.fields[k].meta) state.fields[k].meta = { date: '', surveyor: '', crop: '', lat: null, lon: null };
@@ -306,7 +343,7 @@
 
     window.onload = () => {
         applyTheme(state.theme);
-        updateSelector(); // タブ描画
+        updateSelector();
         renderMap();
         updateProgress();
         initZoom();
@@ -380,7 +417,6 @@
                     }
                     const sysColor = state.theme === 'dark' && !state.systemColors[sys] ? '#cbd5e1' : getSystemColor(sys);
 
-                    // 修正点: 左上の番号を黒・2倍サイズに変更
                     div.innerHTML = `
                         <span class="absolute top-1 left-2 text-lg font-black opacity-80 text-black">#${p}</span>
                         ${hasPhoto ? '<span class="absolute top-1 right-1 text-xs">📷</span>' : ''}
@@ -423,18 +459,33 @@
         document.getElementById('currentSystemColor').value = rgbToHex(getSystemColor(sysName));
         document.getElementById('comment').value = d.comment || '';
         
+        const compDiv = document.getElementById('compareInfo');
+        if (state.compareTarget && state.fields[state.compareTarget]) {
+            const compF = state.fields[state.compareTarget];
+            const compD = compF.data[id];
+            
+            if (compD) {
+                compDiv.classList.remove('hidden');
+                document.getElementById('compareScore').innerText = compD.score;
+                document.getElementById('compareComment').innerText = compD.comment || '';
+                document.getElementById('compareDate').innerText = `${state.compareTarget} (${compF.meta.date || 'No Date'})`;
+            } else {
+                compDiv.classList.add('hidden'); 
+            }
+        } else {
+            compDiv.classList.add('hidden');
+        }
+
         tempPhotoData = d.photo || null;
         updatePhotoPreview();
 
         const grid = document.getElementById('scoreGrid');
         grid.innerHTML = '';
         
-        // 修正点: スコアボタン(数値)を先に表示
         for (let s = 0; s <= f.config.maxScore; s += 0.5) {
              grid.innerHTML += `<div><input type="radio" name="score" id="s${s}" value="${s}" class="score-input hidden" ${d.score==s?'checked':''}><label for="s${s}" class="score-btn cursor-pointer">${s}</label></div>`;
         }
         
-        // 修正点: 特殊ボタン（RESET, 欠株, 評価不能）を最後に移動
         const specials = ['RESET', '欠株', '評価不能'];
         specials.forEach((opt, i) => {
             const label = opt === 'RESET' ? 'RESET<br>(未評価)' : opt;
@@ -519,12 +570,23 @@
         document.getElementById('cfg_useGPS').checked = state.gpsEnabled;
         document.getElementById('cfg_fieldName').value = state.currentField;
         
-        // メタデータ読み込み
+        const sel = document.getElementById('cfg_compareTarget');
+        sel.innerHTML = '<option value="">(None)</option>';
+        Object.keys(state.fields).forEach(fname => {
+            if (fname !== state.currentField) {
+                const opt = document.createElement('option');
+                opt.value = fname;
+                const fd = state.fields[fname].meta?.date || 'No Date';
+                opt.innerText = `${fname} (${fd})`;
+                if (state.compareTarget === fname) opt.selected = true;
+                sel.appendChild(opt);
+            }
+        });
+
         document.getElementById('meta_date').value = m.date || '';
         document.getElementById('meta_surveyor').value = m.surveyor || '';
         document.getElementById('meta_crop').value = m.crop || '';
         
-        // 場所表示
         const locStat = document.getElementById('locationStatus');
         const link = document.getElementById('mapsLink');
         if(m.lat && m.lon) {
@@ -546,15 +608,15 @@
             if(!f.meta) f.meta = {};
             f.meta.lat = pos.coords.latitude;
             f.meta.lon = pos.coords.longitude;
-            openConfig(); // UI更新
+            openConfig(); 
             alert("Location saved!");
         });
     }
 
     function saveFieldConfig() {
         state.gpsEnabled = document.getElementById('cfg_useGPS').checked;
-        
-        // フィールド名変更処理
+        state.compareTarget = document.getElementById('cfg_compareTarget').value || null;
+
         const oldName = state.currentField;
         const newName = document.getElementById('cfg_fieldName').value.trim();
         if(newName && newName !== oldName) {
@@ -562,12 +624,12 @@
             state.fields[newName] = state.fields[oldName];
             delete state.fields[oldName];
             state.currentField = newName;
+            if (state.compareTarget === oldName) state.compareTarget = newName;
         }
 
         const f = state.fields[state.currentField];
         ['rows','lines','plants','maxScore'].forEach(k => f.config[k] = parseFloat(document.getElementById(`cfg_${k}`).value));
         
-        // メタデータ保存
         if(!f.meta) f.meta = {};
         f.meta.date = document.getElementById('meta_date').value;
         f.meta.surveyor = document.getElementById('meta_surveyor').value;
@@ -594,7 +656,6 @@
         }
     }
 
-    /* Tab Switcher */
     function updateSelector() {
         const tabs = document.getElementById('tabs');
         tabs.innerHTML = '';
@@ -605,7 +666,6 @@
             div.onclick = () => { state.currentField = name; saveState(); updateSelector(); renderMap(); updateProgress(); };
             tabs.appendChild(div);
         });
-        // New Field Button
         const addBtn = document.createElement('div');
         addBtn.className = 'tab-item text-blue-500';
         addBtn.innerText = '+';
@@ -620,7 +680,6 @@
         tabs.appendChild(addBtn);
     }
     
-    /* Import Logic (修正点: 自動構成) */
     function importSystemNames(e) {
         const file = e.target.files[0];
         if(!file) return;
@@ -633,13 +692,11 @@
             lines.forEach(l => {
                 const parts = l.split(',');
                 if(parts.length >= 2) {
-                    const id = parts[0].trim(); // "1-2-3"
+                    const id = parts[0].trim();
                     const name = parts[1].trim();
                     if(id && name) {
                         state.fields[state.currentField].systems[id] = name;
                         count++;
-                        
-                        // ID解析して最大値を更新
                         const nums = id.split('-').map(Number);
                         if(nums.length === 3) {
                             if(nums[0] > maxR) maxR = nums[0];
@@ -650,13 +707,12 @@
                 }
             });
             
-            // 構成を自動更新
             if(count > 0 && maxR > 0) {
                 const c = state.fields[state.currentField].config;
                 c.rows = maxR;
-                c.lines = Math.max(c.lines, maxL); // 現在値より大きければ更新
+                c.lines = Math.max(c.lines, maxL);
                 c.plants = Math.max(c.plants, maxP);
-                alert(`Imported ${count} systems.\nMap updated to Rows:${c.rows}, Lines:${c.lines}, Plants:${c.plants}`);
+                alert(`Imported ${count} systems.\nMap updated.`);
             }
 
             saveState();
@@ -666,13 +722,75 @@
         r.readAsText(file);
     }
 
-    /* Export Logic (修正点: フィールドごと・メタデータ追加) */
-    function exportData() {
+    /* Backup & Restore (v4.3 Modified) */
+    async function backupAllData() {
+        const json = JSON.stringify(state, null, 2);
+        const fileName = `FieldEval_BACKUP_${new Date().toISOString().slice(0,10)}.json`;
+        const file = new File([json], fileName, {type: 'application/json'});
+
+        if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+            try {
+                await navigator.share({
+                    title: 'FieldEval Backup',
+                    text: 'Backup data JSON',
+                    files: [file]
+                });
+                return;
+            } catch (err) {
+                console.log('Share canceled or failed', err);
+            }
+        }
+
+        const url = URL.createObjectURL(file);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = fileName;
+        a.click();
+        URL.revokeObjectURL(url);
+    }
+
+    function restoreAllData(e) {
+        const file = e.target.files[0];
+        if(!file) return;
+        if(!confirm("⚠️ CAUTION: This will overwrite ALL current data with the backup file. Continue?")) {
+            e.target.value = '';
+            return;
+        }
+        const r = new FileReader();
+        r.onload = (ev) => {
+            try {
+                const parsed = JSON.parse(ev.target.result);
+                if(!parsed.fields || !parsed.currentField) throw new Error("Invalid format");
+                localStorage.setItem('field_eval_v4', JSON.stringify(parsed));
+                alert("Restore successful! Reloading...");
+                location.reload();
+            } catch(err) {
+                alert("Error: Invalid JSON file.");
+                console.error(err);
+            }
+        };
+        r.readAsText(file);
+    }
+
+    function exportMapImage() {
+        const element = document.getElementById('fieldMap');
+        const originalTransform = element.style.transform;
+        element.style.transform = 'scale(1)';
+        
+        html2canvas(element, { backgroundColor: state.theme === 'dark' ? '#0f172a' : '#f3f4f6' }).then(canvas => {
+            element.style.transform = originalTransform; 
+            const link = document.createElement('a');
+            link.download = `Map_${state.currentField}.png`;
+            link.href = canvas.toDataURL();
+            link.click();
+        });
+    }
+
+    function shareData() {
         const fn = state.currentField;
         const f = state.fields[fn];
         const m = f.meta || {};
         
-        // メタデータヘッダー
         let csv = `# Field: ${fn}\n# Date: ${m.date}\n# Surveyor: ${m.surveyor}\n# Crop: ${m.crop}\n# Location: ${m.lat},${m.lon}\n`;
         csv += "Field,ID,System,Score,Comment,Lat,Lon,Time,HasPhoto\n";
         
@@ -682,13 +800,24 @@
             csv += `${fn},${id},${f.systems[id]||''},${d.score},"${d.comment}",${d.lat||''},${d.lon||''},${d.timestamp||''},${hasP}\n`;
         }
         
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), csv], {type:'text/csv'}));
-        a.download = `FieldEval_${fn}_${new Date().toISOString().slice(0,10)}.csv`;
-        a.click();
+        const blob = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), csv], {type:'text/csv'});
+        const file = new File([blob], `${fn}_${new Date().toISOString().slice(0,10)}.csv`, {type: 'text/csv'});
+
+        if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+            navigator.share({
+                title: `FieldEval Data: ${fn}`,
+                text: `Data for field ${fn}.`,
+                files: [file]
+            }).catch(console.error);
+        } else {
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = file.name;
+            a.click();
+            alert("File downloaded. Please attach it to your email manually.");
+        }
     }
 
-    /* Stats, Theme, Speech... (Unchanged logic) */
     function openStats() {
         const f = state.fields[state.currentField];
         const container = document.getElementById('statsContent');
