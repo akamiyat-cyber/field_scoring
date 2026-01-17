@@ -7,7 +7,7 @@
     <meta name="theme-color" content="#0f172a">
     <link rel="apple-touch-icon" href="icon.png">
     
-    <title>FieldEval Pro v4.5</title>
+    <title>FieldEval Pro v5.0 (PWA)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
@@ -110,17 +110,25 @@
         .dark .tab-item.active {
             background: #1e293b; color: #60a5fa; border-bottom: 2px solid #60a5fa;
         }
+        
+        /* Loading Overlay */
+        #dbLoader { position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 9999; display: flex; justify-content: center; items-center; color: white; font-weight: bold; flex-direction: column; gap: 10px; }
+        #dbLoader.hidden { display: none; }
     </style>
 </head>
 <body class="bg-gray-100 text-slate-800 dark:bg-dark-bg dark:text-gray-100 transition-colors duration-300 flex flex-col h-screen overflow-hidden">
 
+<div id="dbLoader">
+    <div class="animate-spin text-4xl">⏳</div>
+    <div>Loading Database...</div>
+</div>
+
 <div class="bg-white dark:bg-dark-surface py-2 text-center border-b dark:border-dark-border z-50 shadow-sm shrink-0">
-    <h1 class="text-xl font-black tracking-tight text-slate-900 dark:text-white">FieldEval <span class="text-blue-600">Pro</span></h1>
+    <h1 class="text-xl font-black tracking-tight text-slate-900 dark:text-white">FieldEval <span class="text-blue-600">Pro</span> <span class="text-[10px] text-gray-400 font-normal">v5.0</span></h1>
 </div>
 
 <div class="bg-white/90 dark:bg-dark-bg/95 backdrop-blur border-b border-gray-200 dark:border-dark-border z-40 shrink-0">
     <div id="tabs" class="tab-container bg-gray-200 dark:bg-gray-800 border-b border-gray-300 dark:border-gray-700"></div>
-    
     <div class="h-1 w-full bg-gray-200 dark:bg-gray-800"><div id="progressBar" class="h-full bg-blue-600 transition-all duration-500 w-0"></div></div>
     
     <div class="flex justify-between items-center p-2 max-w-7xl mx-auto overflow-x-auto gap-4">
@@ -151,7 +159,7 @@
 </div>
 
 <footer class="bg-gray-200 dark:bg-black py-2 text-center text-[10px] text-gray-500 dark:text-gray-600 font-bold shrink-0 z-50">
-    Created by Takehiro Kamiya (University of Tokyo) | v4.5
+    FieldEval Pro v5.0 (PWA/IndexedDB)
 </footer>
 
 <div id="shareModal" class="hidden fixed inset-0 bg-black/80 z-[90] flex items-center justify-center p-4 backdrop-blur-sm">
@@ -162,32 +170,21 @@
         <div class="space-y-3">
             <button onclick="shareCSV()" class="w-full bg-green-500 hover:bg-green-600 text-white py-3 rounded-xl font-bold flex items-center justify-center gap-3 transition-colors shadow-lg">
                 <span class="text-xl">📊</span>
-                <div class="text-left">
-                    <div class="text-sm leading-none">Excel / CSV</div>
-                    <div class="text-[10px] opacity-80 font-normal">Current Field Data</div>
-                </div>
+                <div class="text-left"><div class="text-sm leading-none">Excel / CSV</div><div class="text-[10px] opacity-80 font-normal">Current Field Data</div></div>
             </button>
-
             <div class="grid grid-cols-2 gap-3">
                 <button onclick="backupData('current')" class="bg-blue-500 hover:bg-blue-600 text-white py-3 rounded-xl font-bold flex flex-col items-center justify-center gap-1 transition-colors shadow-lg">
-                    <span class="text-xl">📦</span>
-                    <div class="text-[10px] leading-tight">JSON<br>(Current Field)</div>
+                    <span class="text-xl">📦</span><div class="text-[10px] leading-tight">JSON<br>(Current)</div>
                 </button>
                 <button onclick="backupData('all')" class="bg-slate-500 hover:bg-slate-600 text-white py-3 rounded-xl font-bold flex flex-col items-center justify-center gap-1 transition-colors shadow-lg">
-                    <span class="text-xl">🗃️</span>
-                    <div class="text-[10px] leading-tight">JSON<br>(All Data)</div>
+                    <span class="text-xl">🗃️</span><div class="text-[10px] leading-tight">JSON<br>(All Data)</div>
                 </button>
             </div>
-            
             <button onclick="exportMapImage()" class="w-full bg-indigo-500 hover:bg-indigo-600 text-white py-3 rounded-xl font-bold flex items-center justify-center gap-3 transition-colors shadow-lg">
                 <span class="text-xl">🖼️</span>
-                <div class="text-left">
-                    <div class="text-sm leading-none">Map Image</div>
-                    <div class="text-[10px] opacity-80 font-normal">Save as PNG</div>
-                </div>
+                <div class="text-left"><div class="text-sm leading-none">Map Image</div><div class="text-[10px] opacity-80 font-normal">Save as PNG</div></div>
             </button>
         </div>
-        
         <button onclick="document.getElementById('shareModal').classList.add('hidden')" class="mt-6 py-2 px-6 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-400 font-bold text-xs hover:bg-gray-200">Cancel</button>
     </div>
 </div>
@@ -208,7 +205,6 @@
             <h3 class="font-black text-2xl">Settings</h3>
             <button onclick="document.getElementById('configModal').classList.add('hidden')" class="text-gray-400 font-bold text-xl">×</button>
         </div>
-        
         <div class="space-y-4 font-bold text-sm">
             <div class="bg-slate-100 dark:bg-slate-800 p-3 rounded-xl border border-slate-200 dark:border-slate-700">
                 <label class="text-xs text-slate-500 font-bold block mb-2">Data Restoration</label>
@@ -217,72 +213,36 @@
                         ♻️ Restore / Import (JSON)
                         <input type="file" accept=".json" class="hidden" onchange="restoreData(event)">
                     </label>
-                    <p class="text-[9px] text-gray-400 text-center">Auto-detects: "Single Field" (Merge) or "Full Backup" (Replace)</p>
                 </div>
             </div>
-
             <div class="bg-purple-50 dark:bg-purple-900/20 p-3 rounded-xl border border-purple-100 dark:border-purple-800">
                 <label class="text-xs text-purple-600 font-bold block mb-2">📊 Compare Mode</label>
-                <select id="cfg_compareTarget" class="w-full bg-white dark:bg-black/20 p-2 rounded-lg text-xs font-bold border border-purple-200 dark:border-purple-800">
-                    <option value="">(None)</option>
-                </select>
-                <p class="text-[10px] text-gray-400 mt-1">Select a past field to see its data while scoring.</p>
+                <select id="cfg_compareTarget" class="w-full bg-white dark:bg-black/20 p-2 rounded-lg text-xs font-bold border border-purple-200 dark:border-purple-800"><option value="">(None)</option></select>
             </div>
-
-            <div>
-                <label class="text-xs text-gray-500">Field Name</label>
-                <input type="text" id="cfg_fieldName" class="w-full bg-gray-100 dark:bg-black/20 p-2 rounded-lg font-bold border border-gray-300 dark:border-gray-600">
-            </div>
-
+            <div><label class="text-xs text-gray-500">Field Name</label><input type="text" id="cfg_fieldName" class="w-full bg-gray-100 dark:bg-black/20 p-2 rounded-lg font-bold border border-gray-300 dark:border-gray-600"></div>
             <div class="grid grid-cols-2 gap-4">
-                <div class="col-span-2">
-                    <label class="text-xs text-gray-500">Survey Date</label>
-                    <input type="date" id="meta_date" class="w-full bg-gray-100 dark:bg-black/20 p-2 rounded-lg font-bold">
-                </div>
-                <div class="col-span-2">
-                    <label class="text-xs text-gray-500">Surveyor</label>
-                    <input type="text" id="meta_surveyor" class="w-full bg-gray-100 dark:bg-black/20 p-2 rounded-lg font-bold">
-                </div>
-                <div class="col-span-2">
-                    <label class="text-xs text-gray-500">Crop Name</label>
-                    <input type="text" id="meta_crop" class="w-full bg-gray-100 dark:bg-black/20 p-2 rounded-lg font-bold">
-                </div>
+                <div class="col-span-2"><label class="text-xs text-gray-500">Survey Date</label><input type="date" id="meta_date" class="w-full bg-gray-100 dark:bg-black/20 p-2 rounded-lg font-bold"></div>
+                <div class="col-span-2"><label class="text-xs text-gray-500">Surveyor</label><input type="text" id="meta_surveyor" class="w-full bg-gray-100 dark:bg-black/20 p-2 rounded-lg font-bold"></div>
+                <div class="col-span-2"><label class="text-xs text-gray-500">Crop Name</label><input type="text" id="meta_crop" class="w-full bg-gray-100 dark:bg-black/20 p-2 rounded-lg font-bold"></div>
             </div>
-
             <div class="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-xl border border-blue-100 dark:border-blue-800">
                 <label class="text-xs text-blue-500 font-bold block mb-2">Field Location</label>
-                <div class="flex gap-2">
-                    <button onclick="setCurrentLocation()" class="bg-blue-600 text-white px-3 py-2 rounded-lg text-xs font-bold">📍 Get GPS</button>
-                    <a id="mapsLink" href="#" target="_blank" class="hidden text-blue-600 text-xs font-bold underline flex items-center">Open Maps ↗</a>
-                </div>
-                <input type="hidden" id="meta_lat"><input type="hidden" id="meta_lon">
-                <p id="locationStatus" class="text-[10px] text-gray-400 mt-1">Not set</p>
+                <div class="flex gap-2"><button onclick="setCurrentLocation()" class="bg-blue-600 text-white px-3 py-2 rounded-lg text-xs font-bold">📍 Get GPS</button><a id="mapsLink" href="#" target="_blank" class="hidden text-blue-600 text-xs font-bold underline flex items-center">Open Maps ↗</a></div>
+                <input type="hidden" id="meta_lat"><input type="hidden" id="meta_lon"><p id="locationStatus" class="text-[10px] text-gray-400 mt-1">Not set</p>
             </div>
-
-            <label class="flex justify-between items-center p-3 bg-gray-50 dark:bg-black/20 rounded-xl">
-                <span>📍 Record GPS per plant</span>
-                <input type="checkbox" id="cfg_useGPS" class="w-6 h-6 accent-blue-600">
-            </label>
-            
+            <label class="flex justify-between items-center p-3 bg-gray-50 dark:bg-black/20 rounded-xl"><span>📍 Record GPS per plant</span><input type="checkbox" id="cfg_useGPS" class="w-6 h-6 accent-blue-600"></label>
             <div class="grid grid-cols-2 gap-4 border-t pt-4 dark:border-gray-700">
                 <div><label class="text-gray-400 text-xs">Rows</label><input type="number" id="cfg_rows" class="w-full bg-gray-100 dark:bg-black/20 p-2 rounded-lg text-center font-black"></div>
                 <div><label class="text-gray-400 text-xs">Lines</label><input type="number" id="cfg_lines" class="w-full bg-gray-100 dark:bg-black/20 p-2 rounded-lg text-center font-black"></div>
                 <div><label class="text-gray-400 text-xs">Plants</label><input type="number" id="cfg_plants" class="w-full bg-gray-100 dark:bg-black/20 p-2 rounded-lg text-center font-black"></div>
                 <div><label class="text-gray-400 text-xs">Max Score</label><input type="number" id="cfg_maxScore" class="w-full bg-gray-100 dark:bg-black/20 p-2 rounded-lg text-center font-black"></div>
             </div>
-            
             <div class="pt-4 border-t dark:border-dark-border space-y-2">
-                <button onclick="resetFieldData()" class="w-full py-2 text-orange-500 font-bold hover:bg-orange-50 dark:hover:bg-orange-900/20 rounded-lg transition-colors text-xs">
-                    ⚠️ Reset Data Only
-                </button>
-                <button onclick="deleteCurrentField()" class="w-full py-2 text-red-500 font-bold hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors text-xs">
-                    🗑️ Delete This Field
-                </button>
+                <button onclick="resetFieldData()" class="w-full py-2 text-orange-500 font-bold hover:bg-orange-50 dark:hover:bg-orange-900/20 rounded-lg transition-colors text-xs">⚠️ Reset Data Only</button>
+                <button onclick="deleteCurrentField()" class="w-full py-2 text-red-500 font-bold hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors text-xs">🗑️ Delete This Field</button>
             </div>
         </div>
-        <div class="mt-6 flex gap-3">
-            <button onclick="saveFieldConfig()" class="flex-1 bg-blue-600 text-white py-4 rounded-xl font-bold">Save & Close</button>
-        </div>
+        <div class="mt-6 flex gap-3"><button onclick="saveFieldConfig()" class="flex-1 bg-blue-600 text-white py-4 rounded-xl font-bold">Save & Close</button></div>
     </div>
 </div>
 
@@ -299,82 +259,124 @@
             </div>
             <button onclick="closeModal()" class="w-10 h-10 shrink-0 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center font-bold text-xl">×</button>
         </div>
-
         <div id="compareInfo" class="hidden mb-4 bg-purple-50 dark:bg-purple-900/20 p-3 rounded-xl border border-purple-100 dark:border-purple-800 flex items-start gap-3">
             <div class="text-xl">📊</div>
             <div class="flex-1">
-                <div class="flex justify-between items-baseline">
-                    <span class="text-[10px] font-bold text-purple-600 dark:text-purple-300 uppercase tracking-wider">Previous Data</span>
-                    <span id="compareDate" class="text-[10px] text-gray-400"></span>
-                </div>
-                <div class="flex items-baseline gap-2 mt-1">
-                    <span id="compareScore" class="text-2xl font-black text-gray-800 dark:text-white"></span>
-                    <span id="compareComment" class="text-xs text-gray-500 italic truncate max-w-[150px]"></span>
-                </div>
+                <div class="flex justify-between items-baseline"><span class="text-[10px] font-bold text-purple-600 dark:text-purple-300 uppercase tracking-wider">Previous Data</span><span id="compareDate" class="text-[10px] text-gray-400"></span></div>
+                <div class="flex items-baseline gap-2 mt-1"><span id="compareScore" class="text-2xl font-black text-gray-800 dark:text-white"></span><span id="compareComment" class="text-xs text-gray-500 italic truncate max-w-[150px]"></span></div>
             </div>
         </div>
-
         <div id="scoreGrid" class="grid grid-cols-3 gap-3 mb-6 max-h-[30vh] overflow-y-auto"></div>
-
         <div class="relative mb-6 flex gap-2 items-start">
             <textarea id="comment" class="flex-1 p-4 bg-gray-100 dark:bg-black/30 rounded-2xl h-20 text-sm font-bold resize-none outline-none focus:ring-2 ring-blue-500" placeholder="Comment..."></textarea>
-            
             <div class="flex flex-col gap-2">
-                <label class="w-12 h-12 rounded-xl flex items-center justify-center text-gray-400 bg-gray-100 dark:bg-black/30 hover:text-blue-500 cursor-pointer text-xl">
-                    📷
-                    <input type="file" id="photoInput" accept="image/*" class="hidden" onchange="handlePhotoSelect(event)">
-                </label>
+                <label class="w-12 h-12 rounded-xl flex items-center justify-center text-gray-400 bg-gray-100 dark:bg-black/30 hover:text-blue-500 cursor-pointer text-xl">📷<input type="file" id="photoInput" accept="image/*" class="hidden" onchange="handlePhotoSelect(event)"></label>
                 <button id="deletePhotoBtn" onclick="removePhoto()" class="hidden w-12 h-8 rounded-xl items-center justify-center text-red-500 bg-red-100 hover:bg-red-200 text-xs font-bold">DEL</button>
             </div>
             <img id="photoPreview" class="photo-thumb absolute right-16 top-0 bg-white" alt="preview">
         </div>
-        
         <div class="flex gap-3">
-            <button onclick="moveWithoutSave(-1)" class="flex-1 bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-200 py-4 rounded-2xl font-black text-sm active:scale-95 transition-transform">
-                <span class="block text-xs opacity-50 font-normal">NO SAVE</span>
-                < BACK
-            </button>
-            <button onclick="saveAndMove(1)" class="flex-[2] bg-blue-600 text-white py-4 rounded-2xl font-black text-xl shadow-xl active:scale-95 transition-transform">
-                SAVE & NEXT >
-            </button>
+            <button onclick="moveWithoutSave(-1)" class="flex-1 bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-200 py-4 rounded-2xl font-black text-sm active:scale-95 transition-transform"><span class="block text-xs opacity-50 font-normal">NO SAVE</span>< BACK</button>
+            <button onclick="saveAndMove(1)" class="flex-[2] bg-blue-600 text-white py-4 rounded-2xl font-black text-xl shadow-xl active:scale-95 transition-transform">SAVE & NEXT ></button>
         </div>
     </div>
 </div>
 
 <script>
-    if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-            navigator.serviceWorker.register('./sw.js').catch(err => console.log('SW fail', err));
+    // --- IndexedDB Wrapper ---
+    const DB_NAME = 'FieldEvalDB';
+    const DB_VERSION = 1;
+    let db = null;
+
+    function initDB() {
+        return new Promise((resolve, reject) => {
+            const req = indexedDB.open(DB_NAME, DB_VERSION);
+            req.onupgradeneeded = (e) => {
+                const _db = e.target.result;
+                if (!_db.objectStoreNames.contains('state')) _db.createObjectStore('state');
+            };
+            req.onsuccess = (e) => {
+                db = e.target.result;
+                resolve(db);
+            };
+            req.onerror = (e) => reject(e);
         });
     }
 
-    let state = JSON.parse(localStorage.getItem('field_eval_v4')) || {
+    function dbGet(store, key) {
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction([store], 'readonly');
+            const req = tx.objectStore(store).get(key);
+            req.onsuccess = () => resolve(req.result);
+            req.onerror = () => reject(req.error);
+        });
+    }
+
+    function dbPut(store, key, value) {
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction([store], 'readwrite');
+            const req = tx.objectStore(store).put(value, key);
+            req.onsuccess = () => resolve();
+            req.onerror = () => reject(req.error);
+        });
+    }
+
+    // --- Service Worker Registration ---
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('./sw.js')
+                .then(reg => console.log('SW registered'))
+                .catch(err => console.log('SW fail', err));
+        });
+    }
+
+    // --- App Logic ---
+    let state = {
         currentField: 'Field 1',
         gpsEnabled: false,
         theme: 'light',
         systemColors: {},
-        compareTarget: null, 
+        compareTarget: null,
         fields: {
-            'Field 1': { 
-                config: {rows:4, lines:2, plants:5, maxScore:5}, 
-                data: {}, 
-                systems: {},
-                meta: { date: '', surveyor: '', crop: '', lat: null, lon: null }
-            }
+            'Field 1': { config: {rows:4, lines:2, plants:5, maxScore:5}, data: {}, systems: {}, meta: { date: '', surveyor: '', crop: '', lat: null, lon: null } }
         }
     };
-    
-    // Migration
-    if(!state.fields[state.currentField].meta) {
-        Object.keys(state.fields).forEach(k => {
-            if(!state.fields[k].meta) state.fields[k].meta = { date: '', surveyor: '', crop: '', lat: null, lon: null };
-        });
-    }
 
     let currentScale = 1;
     let tempPhotoData = null;
 
-    window.onload = () => {
+    window.onload = async () => {
+        try {
+            await initDB();
+            // Load from IDB
+            const savedState = await dbGet('state', 'latest');
+            if (savedState) {
+                state = savedState;
+            } else {
+                // Migration: Check LocalStorage
+                const local = localStorage.getItem('field_eval_v4');
+                if (local) {
+                    try {
+                        state = JSON.parse(local);
+                        await dbPut('state', 'latest', state); // Save to IDB
+                        alert("Data migrated to new database system!");
+                    } catch(e) { console.error("Migration failed", e); }
+                }
+            }
+        } catch(e) {
+            console.error("DB Error", e);
+            alert("Database Error. App may not work correctly.");
+        } finally {
+            document.getElementById('dbLoader').classList.add('hidden');
+        }
+        
+        // Migration Check
+        if(!state.fields[state.currentField].meta) {
+            Object.keys(state.fields).forEach(k => {
+                if(!state.fields[k].meta) state.fields[k].meta = { date: '', surveyor: '', crop: '', lat: null, lon: null };
+            });
+        }
+
         applyTheme(state.theme);
         updateSelector();
         renderMap();
@@ -382,9 +384,15 @@
         initZoom();
     };
 
-    function saveState() {
-        localStorage.setItem('field_eval_v4', JSON.stringify(state));
-        updateProgress();
+    async function saveState() {
+        // Save to IDB (Async)
+        try {
+            await dbPut('state', 'latest', state);
+            updateProgress();
+        } catch(e) {
+            console.error("Save failed", e);
+            alert("Error saving data!");
+        }
     }
 
     /* Zoom Logic */
@@ -553,7 +561,7 @@
         else { p.classList.remove('active'); p.src = ''; b.classList.add('hidden'); b.classList.remove('flex'); }
     }
 
-    function saveAndMove(dir) {
+    async function saveAndMove(dir) {
         const input = document.querySelector('input[name="score"]:checked');
         if(!input) { alert("Please select a score or RESET."); return; }
 
@@ -564,20 +572,20 @@
 
         if (input.value === 'RESET') {
             delete state.fields[state.currentField].data[window.currentId];
-            saveState(); renderMap(); commit(null, dir, false); return;
+            await saveState(); renderMap(); commit(null, dir, false); return;
         }
 
         const d = { score: input.value, comment: document.getElementById('comment').value, photo: tempPhotoData, timestamp: new Date().toISOString() };
         if (state.gpsEnabled && navigator.geolocation) {
              navigator.geolocation.getCurrentPosition(
-                 (p) => { d.lat = p.coords.latitude; d.lon = p.coords.longitude; commit(d, dir, true); },
-                 () => { commit(d, dir, true); }, { enableHighAccuracy: true, timeout: 2000 }
+                 async (p) => { d.lat = p.coords.latitude; d.lon = p.coords.longitude; await commit(d, dir, true); },
+                 async () => { await commit(d, dir, true); }, { enableHighAccuracy: true, timeout: 2000 }
              );
-        } else commit(d, dir, true);
+        } else await commit(d, dir, true);
     }
     function moveWithoutSave(dir) { commit(null, dir, false); }
-    function commit(obj, dir, save) {
-        if(save && obj) { state.fields[state.currentField].data[window.currentId] = obj; saveState(); renderMap(); }
+    async function commit(obj, dir, save) {
+        if(save && obj) { state.fields[state.currentField].data[window.currentId] = obj; await saveState(); renderMap(); }
         const cur = document.getElementById(`cell-${window.currentId}`);
         const next = findNeighbor(cur, dir);
         if(next) { cur.scrollIntoView({behavior:'smooth', block:'center'}); setTimeout(() => openScoring(next.id.replace('cell-', '')), 50); }
@@ -646,7 +654,7 @@
         });
     }
 
-    function saveFieldConfig() {
+    async function saveFieldConfig() {
         state.gpsEnabled = document.getElementById('cfg_useGPS').checked;
         state.compareTarget = document.getElementById('cfg_compareTarget').value || null;
 
@@ -668,60 +676,58 @@
         f.meta.surveyor = document.getElementById('meta_surveyor').value;
         f.meta.crop = document.getElementById('meta_crop').value;
 
-        saveState();
+        await saveState();
         document.getElementById('configModal').classList.add('hidden');
         updateSelector();
         renderMap();
     }
     
-    function resetFieldData() {
+    async function resetFieldData() {
         if(confirm(`⚠️ Clear all DATA for ${state.currentField}?`)) {
             state.fields[state.currentField].data = {};
-            saveState(); renderMap(); updateProgress(); document.getElementById('configModal').classList.add('hidden');
+            await saveState(); renderMap(); updateProgress(); document.getElementById('configModal').classList.add('hidden');
         }
     }
-    function deleteCurrentField() {
+    async function deleteCurrentField() {
         if(Object.keys(state.fields).length <= 1) return alert("Cannot delete last field.");
         if(confirm(`Delete field "${state.currentField}"?`)) {
             delete state.fields[state.currentField];
             state.currentField = Object.keys(state.fields)[0];
-            saveState(); updateSelector(); renderMap(); updateProgress(); document.getElementById('configModal').classList.add('hidden');
+            await saveState(); updateSelector(); renderMap(); updateProgress(); document.getElementById('configModal').classList.add('hidden');
         }
     }
 
-    function updateSelector() {
+    async function updateSelector() {
         const tabs = document.getElementById('tabs');
         tabs.innerHTML = '';
         Object.keys(state.fields).forEach(name => {
             const div = document.createElement('div');
             div.className = `tab-item ${name === state.currentField ? 'active' : ''}`;
             div.innerText = name;
-            div.onclick = () => { state.currentField = name; saveState(); updateSelector(); renderMap(); updateProgress(); };
+            div.onclick = async () => { state.currentField = name; await saveState(); updateSelector(); renderMap(); updateProgress(); };
             tabs.appendChild(div);
         });
         const addBtn = document.createElement('div');
         addBtn.className = 'tab-item text-blue-500';
         addBtn.innerText = '+';
-        addBtn.onclick = () => {
+        addBtn.onclick = async () => {
             const n = prompt("New Field Name:");
             if(n && !state.fields[n]) {
                 state.fields[n] = { config: {rows:4, lines:2, plants:5, maxScore:5}, data:{}, systems:{}, meta:{date:'',surveyor:'',crop:''} };
                 state.currentField = n;
-                saveState(); updateSelector(); renderMap(); updateProgress();
+                await saveState(); updateSelector(); renderMap(); updateProgress();
             }
         };
         tabs.appendChild(addBtn);
     }
     
-    function importSystemNames(e) {
+    async function importSystemNames(e) {
         const file = e.target.files[0];
         if(!file) return;
         const r = new FileReader();
-        r.onload = (ev) => {
+        r.onload = async (ev) => {
             const lines = ev.target.result.split(/\r\n|\n/);
-            let count = 0;
-            let maxR=0, maxL=0, maxP=0;
-            
+            let count = 0; let maxR=0, maxL=0, maxP=0;
             lines.forEach(l => {
                 const parts = l.split(',');
                 if(parts.length >= 2) {
@@ -731,132 +737,63 @@
                         state.fields[state.currentField].systems[id] = name;
                         count++;
                         const nums = id.split('-').map(Number);
-                        if(nums.length === 3) {
-                            if(nums[0] > maxR) maxR = nums[0];
-                            if(nums[1] > maxL) maxL = nums[1];
-                            if(nums[2] > maxP) maxP = nums[2];
-                        }
+                        if(nums.length === 3) { if(nums[0]>maxR)maxR=nums[0]; if(nums[1]>maxL)maxL=nums[1]; if(nums[2]>maxP)maxP=nums[2]; }
                     }
                 }
             });
-            
             if(count > 0 && maxR > 0) {
                 const c = state.fields[state.currentField].config;
-                c.rows = maxR;
-                c.lines = Math.max(c.lines, maxL);
-                c.plants = Math.max(c.plants, maxP);
+                c.rows = maxR; c.lines = Math.max(c.lines, maxL); c.plants = Math.max(c.plants, maxP);
                 alert(`Imported ${count} systems.\nMap updated.`);
             }
-
-            saveState();
-            renderMap();
-            e.target.value = '';
+            await saveState(); renderMap(); e.target.value = '';
         };
         r.readAsText(file);
     }
 
-    /* SHARE FUNCTIONS (v4.5 UPDATED) */
-    function openShareMenu() {
-        document.getElementById('shareModal').classList.remove('hidden');
-    }
+    /* SHARE */
+    function openShareMenu() { document.getElementById('shareModal').classList.remove('hidden'); }
 
     async function backupData(mode) {
-        let data, fileName, text;
-        
+        let data, fileName;
         if (mode === 'current') {
-            // Single Field Backup Structure
             const fname = state.currentField;
-            data = {
-                type: 'field_eval_single',
-                name: fname,
-                content: state.fields[fname],
-                exportedAt: new Date().toISOString()
-            };
+            data = { type: 'field_eval_single', name: fname, content: state.fields[fname], exportedAt: new Date().toISOString() };
             fileName = `FieldEval_${fname}_${new Date().toISOString().slice(0,10)}.json`;
-            text = `Backup for field: ${fname}`;
         } else {
-            // Full Backup
             data = state;
             fileName = `FieldEval_FULL_BACKUP_${new Date().toISOString().slice(0,10)}.json`;
-            text = 'Full system backup';
         }
-
         const json = JSON.stringify(data, null, 2);
         const file = new File([json], fileName, {type: 'application/json'});
-
         if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-            try {
-                await navigator.share({
-                    title: 'FieldEval Backup',
-                    text: text,
-                    files: [file]
-                });
-                document.getElementById('shareModal').classList.add('hidden');
-                return;
-            } catch (err) {
-                console.log('Share canceled', err);
-            }
+            try { await navigator.share({ title: 'FieldEval Backup', files: [file] }); document.getElementById('shareModal').classList.add('hidden'); return; }
+            catch (err) {}
         }
-
-        const url = URL.createObjectURL(file);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = fileName;
-        a.click();
-        URL.revokeObjectURL(url);
+        const url = URL.createObjectURL(file); const a = document.createElement('a'); a.href = url; a.download = fileName; a.click(); URL.revokeObjectURL(url);
         document.getElementById('shareModal').classList.add('hidden');
     }
 
-    // Smart Restore (v4.5)
     function restoreData(e) {
         const file = e.target.files[0];
         if(!file) return;
-        
         const r = new FileReader();
-        r.onload = (ev) => {
+        r.onload = async (ev) => {
             try {
                 const parsed = JSON.parse(ev.target.result);
-                
-                // Case A: Single Field Import (Merge)
                 if (parsed.type === 'field_eval_single' && parsed.content) {
                     const fname = parsed.name;
-                    if(state.fields[fname]) {
-                        if(!confirm(`Field "${fname}" already exists.\nOverwrite with imported data?`)) {
-                            e.target.value = '';
-                            return;
-                        }
-                    } else {
-                        if(!confirm(`Import new field "${fname}"?`)) {
-                            e.target.value = '';
-                            return;
-                        }
-                    }
+                    if(state.fields[fname] && !confirm(`Overwrite field "${fname}"?`)) { e.target.value = ''; return; }
                     state.fields[fname] = parsed.content;
                     state.currentField = fname;
-                    saveState();
-                    alert(`Imported "${fname}" successfully!`);
-                    location.reload();
-                    return;
+                    await saveState(); alert(`Imported "${fname}"!`); location.reload(); return;
                 }
-                
-                // Case B: Full Backup Restore (Replace)
                 if (parsed.fields && parsed.currentField) {
-                    if(!confirm("⚠️ CAUTION: Restoring a FULL BACKUP.\nThis will REPLACE ALL existing data. Continue?")) {
-                        e.target.value = '';
-                        return;
-                    }
-                    localStorage.setItem('field_eval_v4', JSON.stringify(parsed));
-                    alert("Restore successful! Reloading...");
-                    location.reload();
-                    return;
+                    if(!confirm("⚠️ CAUTION: Restore FULL BACKUP?")) { e.target.value = ''; return; }
+                    state = parsed; await saveState(); alert("Restore successful!"); location.reload(); return;
                 }
-
-                throw new Error("Unknown file format");
-
-            } catch(err) {
-                alert("Error: Invalid JSON file.");
-                console.error(err);
-            }
+                throw new Error("Unknown format");
+            } catch(err) { alert("Invalid JSON"); }
         };
         r.readAsText(file);
     }
@@ -866,7 +803,6 @@
         const element = document.getElementById('fieldMap');
         const originalTransform = element.style.transform;
         element.style.transform = 'scale(1)';
-        
         html2canvas(element, { backgroundColor: state.theme === 'dark' ? '#0f172a' : '#f3f4f6' }).then(canvas => {
             element.style.transform = originalTransform; 
             const link = document.createElement('a');
@@ -880,36 +816,25 @@
         const fn = state.currentField;
         const f = state.fields[fn];
         const m = f.meta || {};
-        
         let csv = `# Field: ${fn}\n# Date: ${m.date}\n# Surveyor: ${m.surveyor}\n# Crop: ${m.crop}\n# Location: ${m.lat},${m.lon}\n`;
         csv += "Field,ID,System,Score,Comment,Lat,Lon,Time,HasPhoto\n";
-        
         for(const id in f.data) {
             const d = f.data[id];
             const hasP = d.photo ? 'Yes' : 'No';
             csv += `${fn},${id},${f.systems[id]||''},${d.score},"${d.comment}",${d.lat||''},${d.lon||''},${d.timestamp||''},${hasP}\n`;
         }
-        
         const blob = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), csv], {type:'text/csv'});
         const file = new File([blob], `${fn}_${new Date().toISOString().slice(0,10)}.csv`, {type: 'text/csv'});
-
         if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-            navigator.share({
-                title: `FieldEval Data: ${fn}`,
-                text: `Data for field ${fn}.`,
-                files: [file]
-            }).catch(console.error);
+            navigator.share({ title: `FieldEval Data`, files: [file] }).catch(console.error);
         } else {
-            const a = document.createElement('a');
-            a.href = URL.createObjectURL(blob);
-            a.download = file.name;
-            a.click();
-            alert("File downloaded. Please attach it to your email manually.");
+            const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = file.name; a.click(); alert("Downloaded.");
         }
         document.getElementById('shareModal').classList.add('hidden');
     }
 
     function openStats() {
+        // ... (Stats Logic Unchanged from v4.5) ...
         const f = state.fields[state.currentField];
         const container = document.getElementById('statsContent');
         container.innerHTML = '';
