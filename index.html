@@ -3,202 +3,326 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>FieldEval Outdoor V2</title>
+    <title>FieldEval World Edition v3.2</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    colors: {
+                        dark: { bg: '#0f172a', surface: '#1e293b', border: '#334155' }
+                    }
+                }
+            }
+        }
+    </script>
     <style>
-        body { touch-action: manipulation; background-color: #e5e5e5; font-family: sans-serif; padding-bottom: 100px; }
+        /* 1本指スクロールを許可しつつ、ピンチ操作はJSで制御 */
+        body { overscroll-behavior: none; }
         
-        /* タブデザイン */
-        .tab-container { display: flex; gap: 4px; overflow-x: auto; padding: 4px 0; scrollbar-width: none; }
-        .tab-btn { 
-            white-space: nowrap; padding: 8px 16px; border-radius: 8px 8px 0 0; font-weight: bold; font-size: 0.9rem;
-            background: #525252; color: #a3a3a3; transition: all 0.2s;
+        #mapContainer {
+            overflow: auto;
+            width: 100%;
+            height: calc(100vh - 140px);
+            touch-action: pan-x pan-y;
+            position: relative;
+            background-color: #f3f4f6;
         }
-        .tab-btn.active { background: #e5e5e5; color: black; padding-bottom: 10px; margin-bottom: -4px; z-index: 10; }
-        
-        /* 圃場レイアウト */
-        .field-container { display: flex; gap: 50px; padding: 20px; overflow-x: auto; min-height: 80vh; align-items: flex-start; }
-        .une-block { display: flex; gap: 15px; background: #d4d4d4; padding: 10px; border-radius: 8px; position: relative; padding-top: 45px; }
-        .une-header { position: absolute; top: -5px; left: 0; width: 100%; text-align: center; font-size: 1.4rem; font-weight: 900; color: #333; background: rgba(255,255,255,0.6); padding: 2px 0; }
-        .line-column { display: flex; flex-direction: column; gap: 12px; }
+        .dark #mapContainer { background-color: #0f172a; }
 
-        /* 個体セル（文字サイズ拡大） */
+        #fieldMap { 
+            display: flex; gap: 40px; padding: 40px;
+            align-items: flex-start;
+            transform-origin: 0 0;
+            width: max-content;
+        }
+
+        .une-block {
+            display: flex; gap: 12px;
+            background: rgba(200, 200, 200, 0.2);
+            border: 2px dashed #cbd5e1;
+            padding: 40px 10px 10px 10px;
+            border-radius: 16px; position: relative;
+        }
+        .dark .une-block { background: rgba(30, 41, 59, 0.5); border-color: #475569; }
+
+        .une-header {
+            position: absolute; top: -12px; left: 50%; transform: translateX(-50%);
+            background: #0f172a; color: white; padding: 4px 16px;
+            border-radius: 20px; font-weight: 900; font-size: 0.9rem;
+            white-space: nowrap; z-index: 5;
+        }
+        .dark .une-header { background: #3b82f6; }
+
         .plant-cell { 
-            width: 100px; height: 100px; /* 少し大きく */
-            display: flex; flex-direction: column; align-items: center; justify-content: center; 
-            border-radius: 8px; background: white; border: 3px solid #666; transition: all 0.1s;
+            width: 90px; height: 100px;
+            display: flex; flex-direction: column; 
+            align-items: center; justify-content: center; 
+            border-radius: 14px; background: white; 
+            border: 2px solid #e2e8f0; 
+            transition: transform 0.1s, border-color 0.1s;
         }
-        .selected { outline: 6px solid #ef4444 !important; outline-offset: -2px; z-index: 20; }
-        .plant-id { font-size: 14px; font-weight: bold; opacity: 0.6; } /* フォント拡大 */
-        .system-name { font-size: 12px; font-weight: 900; width: 100%; text-align: center; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: #000; padding: 0 2px; } /* フォント拡大 */
-        .score-display { font-size: 28px; font-weight: 900; line-height: 1; margin-top: 4px; }
+        .dark .plant-cell { background: #1e293b; border-color: #334155; color: white; }
+        .selected { outline: 4px solid #3b82f6 !important; transform: scale(1.1); z-index: 20; box-shadow: 0 10px 25px rgba(0,0,0,0.3); }
 
-        /* ポップアップ */
-        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 100; display: flex; align-items: center; justify-content: center; }
-        .score-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
-        .score-btn { padding: 15px 0; font-size: 1.5rem; font-weight: bold; text-align: center; background: #fff; border: 3px solid #333; border-radius: 8px; }
-        .score-input:checked + .score-btn { background: #16a34a; color: white; border-color: #fff; }
-        .special-btn { background: #fee2e2; border-color: #991b1b; color: #991b1b; font-size: 1rem; display: flex; align-items: center; justify-content: center;}
-        .score-input:checked + .special-btn { background: #991b1b; color: white; }
+        /* ヒストグラムバー */
+        .bar-container { display: flex; align-items: flex-end; height: 60px; gap: 2px; }
+        .bar { flex: 1; background: #3b82f6; border-radius: 2px 2px 0 0; min-width: 8px; position: relative; }
+        .bar:hover::after { content: attr(data-count); position: absolute; top: -20px; left: 0; right: 0; text-align: center; font-size: 10px; font-weight: bold; color: #3b82f6; }
 
+        .modal-enter { animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
+        @keyframes slideUp { from { transform: translateY(100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+        .score-btn { height: 60px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; font-weight: 900; border-radius: 12px; background: white; border: 2px solid #e2e8f0; color: #334155; }
+        .dark .score-btn { background: #0f172a; border-color: #334155; color: #cbd5e1; }
+        .score-input:checked + .score-btn { background: #2563eb; color: white; border-color: #2563eb; }
+        .special-btn { font-size: 0.9rem; border-color: #fca5a5; color: #dc2626; background: #fef2f2; }
+        .score-input:checked + .special-btn { background: #dc2626; color: white; border-color: #dc2626; }
+        
         /* 写真プレビュー */
-        .photo-preview { width: 100%; height: 120px; object-fit: cover; border-radius: 8px; border: 2px solid #ccc; margin-bottom: 8px; display: none; }
-        .photo-preview.show { display: block; }
+        .photo-thumb { width: 60px; height: 60px; object-fit: cover; border-radius: 8px; border: 2px solid #ccc; display: none; }
+        .photo-thumb.active { display: block; }
     </style>
 </head>
-<body>
+<body class="bg-gray-100 text-slate-800 dark:bg-dark-bg dark:text-gray-100 transition-colors duration-300 flex flex-col h-screen overflow-hidden">
 
-<div class="bg-black text-white pt-2 sticky top-0 z-50 shadow-md">
-    <div class="flex justify-between items-center px-2 mb-2">
+<div class="bg-white dark:bg-dark-surface py-2 text-center border-b dark:border-dark-border z-50 shadow-sm shrink-0">
+    <h1 class="text-xl font-black tracking-tight text-slate-900 dark:text-white">FieldEval <span class="text-blue-600">Pro</span></h1>
+</div>
+
+<div class="bg-white/90 dark:bg-dark-bg/95 backdrop-blur border-b border-gray-200 dark:border-dark-border z-40 shrink-0">
+    <div class="h-1 w-full bg-gray-200 dark:bg-gray-800"><div id="progressBar" class="h-full bg-blue-600 transition-all duration-500 w-0"></div></div>
+    
+    <div class="flex justify-between items-center p-2 max-w-7xl mx-auto overflow-x-auto gap-4">
+        <div class="flex flex-col min-w-[120px]">
+            <select id="fieldSelector" onchange="switchField()" class="bg-transparent font-black text-lg outline-none cursor-pointer"></select>
+            <span id="progressText" class="text-[9px] font-bold text-gray-400 uppercase tracking-widest">0% DONE</span>
+        </div>
+
         <div class="flex items-center gap-2">
-            <button onclick="location.href='./'" class="bg-gray-800 border border-gray-600 px-2 py-1 rounded text-xs font-bold hover:bg-gray-700">🏠 ホーム</button>
-            <h1 class="text-xs font-bold text-gray-400 uppercase">FieldEval V2</h1>
+            <input type="range" min="0.5" max="2.0" step="0.1" value="1.0" id="zoomSlider" oninput="manualZoom(this.value)" class="w-20 accent-blue-600 hidden sm:block">
+            <button onclick="openStats()" class="p-2 rounded-lg bg-gray-100 dark:bg-dark-surface font-bold text-xs flex items-center gap-1 whitespace-nowrap"><span>📊</span> Stats</button>
+            <button onclick="toggleTheme()" class="p-2 rounded-full bg-gray-100 dark:bg-dark-surface">🌗</button>
+            <button onclick="openConfig()" class="p-2 rounded-lg bg-gray-100 dark:bg-dark-surface font-bold text-xs">⚙️</button>
+            
+            <label class="p-2 rounded-lg bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 font-bold text-xs cursor-pointer flex items-center gap-1 hover:opacity-80 transition-opacity">
+                <span>📥</span> Import
+                <input type="file" accept=".csv,.txt" class="hidden" onchange="importSystemNames(event)">
+            </label>
+
+            <button onclick="exportData()" class="p-2 rounded-lg bg-blue-600 text-white font-bold text-xs shadow-lg">Export</button>
         </div>
-        <div class="flex gap-2">
-            <button onclick="toggleViewMode()" id="viewModeBtn" class="bg-purple-700 border border-white px-3 py-1 rounded font-bold text-xs">📊 グラフ</button>
-            <button onclick="document.getElementById('csvInput').click()" class="bg-gray-700 border border-white px-2 py-1 rounded font-bold text-xs">系統読込</button>
-            <button onclick="openConfig()" class="bg-gray-700 border border-white px-2 py-1 rounded font-bold text-xs">設定/管理</button>
-            <button onclick="exportData()" class="bg-blue-800 border border-white px-2 py-1 rounded font-bold text-xs text-yellow-300">保存</button>
-        </div>
-        <input type="file" id="csvInput" class="hidden" accept=".csv" onchange="importSystemNames(event)">
-    </div>
-    
-    <div class="flex items-end px-2 gap-2">
-        <div id="fieldTabs" class="tab-container flex-grow">
-            </div>
-        <button onclick="addNewField()" class="text-white font-bold text-xl px-3 pb-2 hover:text-green-400">+</button>
     </div>
 </div>
 
-<div id="mainContainer" class="bg-[#e5e5e5]">
-    <div id="fieldMap" class="field-container"></div>
-    
-    <div id="graphView" class="hidden p-4 min-h-[80vh] bg-white m-4 rounded-xl shadow-lg">
-        <h2 class="text-xl font-black mb-4 text-center border-b pb-2">系統別スコア平均</h2>
-        <canvas id="scoreChart"></canvas>
-        <div id="noGraphData" class="hidden text-center text-gray-500 mt-10">データがありません</div>
+<div id="mapContainer" class="flex-1">
+    <div id="fieldMap"></div>
+</div>
+
+<footer class="bg-gray-200 dark:bg-black py-2 text-center text-[10px] text-gray-500 dark:text-gray-600 font-bold shrink-0 z-50">
+    Created by Takehiro Kamiya (University of Tokyo) | Use at your own risk.
+</footer>
+
+<div id="statsModal" class="hidden fixed inset-0 bg-black/80 z-[70] flex flex-col p-4 backdrop-blur-sm">
+    <div class="bg-white dark:bg-dark-surface rounded-2xl shadow-2xl flex-1 max-w-2xl mx-auto w-full flex flex-col overflow-hidden">
+        <div class="p-4 border-b dark:border-dark-border flex justify-between items-center">
+            <h3 class="font-black text-xl">📊 System Analysis</h3>
+            <button onclick="document.getElementById('statsModal').classList.add('hidden')" class="text-2xl font-bold text-gray-400">&times;</button>
+        </div>
+        <div id="statsContent" class="flex-1 overflow-y-auto p-4 space-y-6"></div>
     </div>
 </div>
 
-<div id="configModal" class="hidden fixed inset-0 bg-black/90 z-[60] flex items-center justify-center p-4">
-    <div class="bg-white p-6 rounded-xl w-full max-w-sm border-4 border-gray-600 max-h-[90vh] overflow-y-auto">
-        <h3 class="font-black text-2xl mb-4 border-b-2 border-black pb-2">設定・管理</h3>
-        
-        <div class="bg-gray-100 p-3 rounded-lg mb-6 border border-gray-300">
-            <label class="text-xs font-bold text-gray-500">現在の圃場名</label>
-            <div class="flex gap-2 mb-2">
-                <input type="text" id="renameFieldInput" class="flex-grow border-2 border-gray-400 p-2 font-bold rounded">
-                <button onclick="renameField()" class="bg-blue-600 text-white px-3 rounded font-bold">変更</button>
-            </div>
-            <button onclick="deleteField()" class="w-full bg-red-100 text-red-600 border border-red-300 py-2 rounded font-bold text-sm">⚠️ この圃場を削除</button>
-        </div>
-
-        <div class="space-y-4 mb-6 text-lg font-bold">
-            <div class="flex justify-between items-center">
-                <span>GPS座標を記録</span>
+<div id="configModal" class="hidden fixed inset-0 bg-black/80 z-[80] flex items-center justify-center p-4 backdrop-blur-sm">
+    <div class="bg-white dark:bg-dark-surface p-6 rounded-2xl w-full max-w-sm shadow-2xl">
+        <h3 class="font-black text-2xl mb-6">Setup (設定)</h3>
+        <div class="space-y-4 font-bold text-sm">
+            <label class="flex justify-between items-center p-3 bg-gray-50 dark:bg-black/20 rounded-xl">
+                <span>📍 GPS Record (位置情報記録)</span>
                 <input type="checkbox" id="cfg_useGPS" class="w-6 h-6 accent-blue-600">
+            </label>
+            <div class="grid grid-cols-2 gap-4">
+                <div><label class="text-gray-400 text-xs">Rows (畝数)</label><input type="number" id="cfg_rows" class="w-full bg-gray-100 dark:bg-black/20 p-2 rounded-lg text-center font-black"></div>
+                <div><label class="text-gray-400 text-xs">Lines (条数)</label><input type="number" id="cfg_lines" class="w-full bg-gray-100 dark:bg-black/20 p-2 rounded-lg text-center font-black"></div>
+                <div><label class="text-gray-400 text-xs">Plants (個体数)</label><input type="number" id="cfg_plants" class="w-full bg-gray-100 dark:bg-black/20 p-2 rounded-lg text-center font-black"></div>
+                <div><label class="text-gray-400 text-xs">Max Score (最大値)</label><input type="number" id="cfg_maxScore" class="w-full bg-gray-100 dark:bg-black/20 p-2 rounded-lg text-center font-black"></div>
             </div>
-            <div class="border-t pt-4 mt-4">
-                <p class="text-sm text-gray-500 mb-2">マップ構造</p>
-                <div class="flex justify-between items-center mb-2"><span>畝数</span><input type="number" id="cfg_rows" class="w-20 border-2 border-black p-1 text-center"></div>
-                <div class="flex justify-between items-center mb-2"><span>条数</span><input type="number" id="cfg_lines" class="w-20 border-2 border-black p-1 text-center"></div>
-                <div class="flex justify-between items-center mb-2"><span>個体数</span><input type="number" id="cfg_plants" class="w-20 border-2 border-black p-1 text-center"></div>
-                <div class="flex justify-between items-center"><span>評価上限</span><input type="number" id="cfg_maxScore" class="w-20 border-2 border-black p-1 text-center"></div>
+            
+            <div class="pt-4 border-t dark:border-dark-border">
+                <button onclick="deleteCurrentField()" class="w-full py-2 text-red-500 font-bold hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors text-xs">
+                    🗑️ Delete This Field (この圃場を削除)
+                </button>
             </div>
         </div>
-        <button onclick="saveFieldConfig()" class="w-full bg-black text-white py-4 rounded-lg font-black text-xl mb-3">設定を保存して戻る</button>
-        <button onclick="document.getElementById('configModal').classList.add('hidden')" class="w-full bg-gray-200 text-gray-800 py-3 rounded-lg font-bold">圃場マップに戻る</button>
+        <div class="mt-6 flex gap-3">
+            <button onclick="document.getElementById('configModal').classList.add('hidden')" class="flex-1 py-4 font-bold text-gray-400">Cancel</button>
+            <button onclick="saveFieldConfig()" class="flex-1 bg-blue-600 text-white py-4 rounded-xl font-bold">Save</button>
+        </div>
     </div>
 </div>
 
-<div id="inputModal" class="modal-overlay hidden">
-    <div class="bg-white w-[95%] max-w-md rounded-xl p-4 border-4 border-blue-600 shadow-2xl relative max-h-[95vh] overflow-y-auto">
-        <button onclick="closeModal()" class="absolute top-2 right-2 bg-gray-200 w-10 h-10 rounded-full text-2xl font-bold text-gray-700 flex items-center justify-center z-10">&times;</button>
-        
-        <div class="mb-2">
-            <div class="flex items-baseline gap-2">
-                <span id="currentIdLabel" class="text-3xl font-black text-blue-800">1-1-1</span>
-                <span id="currentSystemLabel" class="text-xl font-bold text-gray-800 truncate max-w-[200px]">System Name</span>
+<div id="inputModal" class="fixed inset-0 z-[100] hidden flex flex-col justify-end sm:justify-center items-center bg-black/60 backdrop-blur-sm">
+    <div class="absolute inset-0" onclick="closeModal()"></div>
+    <div class="modal-enter relative w-full sm:w-[400px] bg-white dark:bg-dark-surface sm:rounded-3xl rounded-t-3xl p-6 shadow-2xl border-t border-white/20">
+        <div class="flex justify-between items-start mb-4">
+            <div>
+                <h2 id="currentIdLabel" class="text-4xl font-black text-blue-600 dark:text-blue-400 leading-none">--</h2>
+                <p id="currentSystemLabel" class="text-sm font-bold text-gray-500 mt-1 truncate max-w-[250px]">No Data</p>
             </div>
+            <button onclick="closeModal()" class="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center font-bold text-xl">&times;</button>
         </div>
 
-        <div class="mb-4 text-center">
-            <img id="photoPreview" class="photo-preview mx-auto">
-            <input type="file" id="photoInput" capture="environment" accept="image/*" class="hidden" onchange="handlePhotoSelect(event)">
-            <button onclick="document.getElementById('photoInput').click()" class="bg-gray-100 text-gray-700 border-2 border-gray-400 w-full py-2 rounded-lg font-bold flex items-center justify-center gap-2">
-                📷 写真を撮る / 追加
+        <div id="scoreGrid" class="grid grid-cols-3 gap-3 mb-6 max-h-[30vh] overflow-y-auto"></div>
+
+        <div class="relative mb-6 flex gap-2 items-start">
+            <textarea id="comment" class="flex-1 p-4 bg-gray-100 dark:bg-black/30 rounded-2xl h-20 text-sm font-bold resize-none outline-none focus:ring-2 ring-blue-500" placeholder="Comment..."></textarea>
+            
+            <div class="flex flex-col gap-2">
+                <button id="micBtn" onclick="toggleSpeech()" class="w-12 h-9 rounded-xl flex items-center justify-center text-gray-400 bg-gray-100 dark:bg-black/30 hover:text-blue-500">🎤</button>
+                <label class="w-12 h-9 rounded-xl flex items-center justify-center text-gray-400 bg-gray-100 dark:bg-black/30 hover:text-blue-500 cursor-pointer">
+                    📷
+                    <input type="file" id="photoInput" accept="image/*" class="hidden" onchange="handlePhotoSelect(event)">
+                </label>
+            </div>
+            <img id="photoPreview" class="photo-thumb absolute right-16 top-0 bg-white" alt="preview">
+        </div>
+        
+        <div class="flex gap-3">
+            <button onclick="moveWithoutSave(-1)" class="flex-1 bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-200 py-4 rounded-2xl font-black text-sm active:scale-95 transition-transform">
+                <span class="block text-xs opacity-50 font-normal">NO SAVE</span>
+                &lt; BACK
             </button>
-            <button id="deletePhotoBtn" onclick="deletePhoto()" class="hidden text-red-500 text-xs font-bold mt-1 underline">写真を削除</button>
+            <button onclick="saveAndMove(1)" class="flex-[2] bg-blue-600 text-white py-4 rounded-2xl font-black text-xl shadow-xl active:scale-95 transition-transform">
+                SAVE & NEXT &gt;
+            </button>
         </div>
-
-        <div id="scoreGrid" class="score-grid mb-4">
-            </div>
-
-        <textarea id="comment" class="w-full p-2 bg-gray-100 border-2 border-black rounded text-lg h-16 mb-3" placeholder="コメント..."></textarea>
-        
-        <button onclick="saveAndNext()" class="w-full bg-blue-700 text-white border-2 border-white py-4 rounded-lg font-black text-2xl shadow-lg active:bg-blue-900">
-            保存して次へ
-        </button>
     </div>
 </div>
 
 <script>
-    // --- 初期データ ---
-    let state = JSON.parse(localStorage.getItem('field_eval_v5')) || {
-        currentField: '圃場1',
+    let state = JSON.parse(localStorage.getItem('field_eval_world_v3')) || {
+        currentField: 'Field 1',
         gpsEnabled: false,
+        theme: 'light',
         fields: {
-            '圃場1': { config: {rows:3, lines:2, plants:5, maxScore:5}, data: {}, systems: {} }
+            'Field 1': { config: {rows:4, lines:2, plants:5, maxScore:5}, data: {}, systems: {} }
         }
     };
     
-    // 現在の入力中の写真データ（一時保持）
-    let currentPhotoData = null;
-    let chartInstance = null;
+    let currentScale = 1;
+    let recognition = null;
+    let tempPhotoData = null;
 
     window.onload = () => {
-        renderTabs();
+        applyTheme(state.theme);
+        document.getElementById('cfg_useGPS').checked = state.gpsEnabled;
+        updateSelector();
         renderMap();
+        updateProgress();
+        initSpeech();
+        initZoom();
     };
 
     function saveState() {
-        try {
-            localStorage.setItem('field_eval_v5', JSON.stringify(state));
-        } catch (e) {
-            alert('保存容量の上限に達しました。写真を削除するか、データをCSV出力して整理してください。');
-        }
+        localStorage.setItem('field_eval_world_v3', JSON.stringify(state));
+        updateProgress();
     }
 
-    // --- 描画系 ---
-
-    function getHeatmapColor(val, max) {
-        if (val === '欠株') return '#fee2e2'; 
-        if (val === '評価不能') return '#f3f4f6';
-        if (val === null || val === undefined) return '#ffffff';
-        const numVal = parseFloat(val);
-        const lightness = 95 - (numVal / max * 60); 
-        return `hsl(140, 70%, ${lightness}%)`;
+    /* ----- 1. Zoom Logic ----- */
+    function initZoom() {
+        const container = document.getElementById('mapContainer');
+        let initialDistance = 0;
+        let initialScale = 1;
+        container.addEventListener('touchstart', (e) => {
+            if (e.touches.length === 2) {
+                e.preventDefault();
+                initialDistance = getDistance(e.touches[0], e.touches[1]);
+                initialScale = currentScale;
+            }
+        }, { passive: false });
+        container.addEventListener('touchmove', (e) => {
+            if (e.touches.length === 2) {
+                e.preventDefault();
+                const dist = getDistance(e.touches[0], e.touches[1]);
+                const delta = dist / initialDistance;
+                setZoom(initialScale * delta);
+            }
+        }, { passive: false });
+        container.addEventListener('wheel', (e) => {
+            if(e.shiftKey || e.ctrlKey) {
+                e.preventDefault();
+                setZoom(currentScale + (e.deltaY * -0.001));
+            }
+        }, { passive: false });
     }
-
-    function getTextColor(val, max) {
-        if (val === '欠株') return '#dc2626';
-        if (val === '評価不能') return '#6b7280';
-        return (parseFloat(val) / max > 0.6) ? '#ffffff' : '#000000';
+    function getDistance(t1, t2) { return Math.hypot(t2.pageX - t1.pageX, t2.pageY - t1.pageY); }
+    function setZoom(scale) {
+        currentScale = Math.min(Math.max(scale, 0.5), 3.0);
+        document.getElementById('fieldMap').style.transform = `scale(${currentScale})`;
+        const slider = document.getElementById('zoomSlider');
+        if(slider) slider.value = currentScale;
     }
+    function manualZoom(val) { setZoom(parseFloat(val)); }
 
-    function renderTabs() {
-        const container = document.getElementById('fieldTabs');
+    /* ----- Analytics ----- */
+    function openStats() {
+        const field = state.fields[state.currentField];
+        const container = document.getElementById('statsContent');
         container.innerHTML = '';
-        Object.keys(state.fields).forEach(fname => {
-            const btn = document.createElement('button');
-            btn.className = `tab-btn ${fname === state.currentField ? 'active' : ''}`;
-            btn.innerText = fname;
-            btn.onclick = () => switchField(fname);
-            container.appendChild(btn);
+        const systemStats = {};
+        const allSystems = new Set(Object.values(field.systems));
+        
+        allSystems.forEach(sys => {
+            if(!sys) return;
+            systemStats[sys] = { counts: {}, total: 0, sum: 0 };
+            for(let i=1; i<=field.config.maxScore; i++) systemStats[sys].counts[i] = 0;
+            systemStats[sys].counts['N/A'] = 0;
+            systemStats[sys].counts['Miss'] = 0;
         });
+
+        for(const id in field.data) {
+            const sys = field.systems[id];
+            const score = field.data[id].score;
+            if(sys && systemStats[sys]) {
+                if(score === '評価不能') systemStats[sys].counts['N/A']++;
+                else if(score === '欠株') systemStats[sys].counts['Miss']++;
+                else {
+                    const num = parseFloat(score);
+                    if(!isNaN(num)) {
+                        const key = Math.round(num);
+                        if(systemStats[sys].counts[key] !== undefined) systemStats[sys].counts[key]++;
+                        systemStats[sys].total++;
+                        systemStats[sys].sum += num;
+                    }
+                }
+            }
+        }
+
+        if(Object.keys(systemStats).length === 0) {
+            container.innerHTML = '<div class="text-center text-gray-500 py-10">No data.</div>';
+        } else {
+            Object.keys(systemStats).sort().forEach(sys => {
+                const stat = systemStats[sys];
+                const avg = stat.total > 0 ? (stat.sum / stat.total).toFixed(1) : '-';
+                let barsHtml = '';
+                let maxCount = 0;
+                Object.values(stat.counts).forEach(c => { if(c > maxCount) maxCount = c; });
+
+                for(let i=1; i<=field.config.maxScore; i++) {
+                    const count = stat.counts[i] || 0;
+                    const height = maxCount > 0 ? (count / maxCount) * 100 : 0;
+                    barsHtml += `<div class="flex flex-col items-center flex-1"><div class="bar-container w-full items-end justify-center"><div class="bar w-full" style="height: ${height}%" data-count="${count}"></div></div><span class="text-[9px] mt-1 font-bold text-gray-400">${i}</span></div>`;
+                }
+                container.innerHTML += `<div class="bg-gray-50 dark:bg-black/20 p-4 rounded-xl"><div class="flex justify-between items-baseline mb-2"><h4 class="font-bold text-lg text-blue-800 dark:text-blue-400">${sys}</h4><span class="text-xs font-bold text-gray-500">Avg: ${avg} (n=${stat.total})</span></div><div class="flex gap-2 h-16 items-end px-2">${barsHtml}</div></div>`;
+            });
+        }
+        document.getElementById('statsModal').classList.remove('hidden');
     }
 
+    /* ----- Render Map ----- */
     function renderMap() {
         const field = state.fields[state.currentField];
         const { rows, lines, plants, maxScore } = field.config;
@@ -208,363 +332,277 @@
         for (let r = 1; r <= rows; r++) {
             const uneBlock = document.createElement('div');
             uneBlock.className = 'une-block';
-            uneBlock.innerHTML = `<div class="une-header">${r} 畝</div>`;
-            
+            uneBlock.innerHTML = `<div class="une-header">R-${r}</div>`;
             for (let l = 1; l <= lines; l++) {
-                const lineCol = document.createElement('div');
-                lineCol.className = 'line-column';
-                lineCol.innerHTML = `<div class="text-center font-bold text-gray-600 mb-1">${l}条</div>`;
-
+                const col = document.createElement('div');
+                col.className = 'flex flex-col gap-3 min-w-[90px]';
+                col.innerHTML = `<div class="text-center text-[10px] font-bold text-gray-400 uppercase">L${l}</div>`;
                 for (let p = 1; p <= plants; p++) {
                     const id = `${r}-${l}-${p}`;
-                    const cellData = field.data[id];
-                    const sysName = field.systems[id] || '';
-                    const val = cellData ? cellData.score : null;
-                    const hasPhoto = cellData && cellData.photo; // 写真があるか
-
+                    const d = field.data[id];
+                    const sys = field.systems[id] || '';
+                    const val = d ? d.score : null;
+                    const hasPhoto = d && d.photo;
+                    
                     const div = document.createElement('div');
                     div.id = `cell-${id}`;
-                    div.className = `plant-cell`;
-                    
+                    div.className = 'plant-cell relative overflow-hidden group cursor-pointer';
                     if (val !== null) {
                         div.style.backgroundColor = getHeatmapColor(val, maxScore);
-                        div.style.color = getTextColor(val, maxScore);
-                        div.style.borderColor = (val === '欠株') ? '#dc2626' : '#15803d';
                     }
-
                     div.innerHTML = `
-                        <span class="plant-id">${p}</span>
-                        <div class="system-name">${sysName}</div>
-                        <span class="score-display">
+                        <span class="absolute top-1 left-2 text-[9px] font-bold opacity-50 text-gray-800 dark:text-gray-300">#${p}</span>
+                        ${hasPhoto ? '<span class="absolute top-1 right-1 text-xs">📷</span>' : ''}
+                        <div class="w-full text-center px-1 text-[18px] font-black text-black leading-tight mt-3 break-words overflow-hidden max-h-[50px]">${sys}</div>
+                        <span class="text-2xl font-black leading-none mt-1 text-gray-800 dark:text-gray-100">
                             ${val === '評価不能' ? 'N/A' : (val === '欠株' ? '×' : (val ?? ''))}
                         </span>
-                        ${hasPhoto ? '<span class="text-[10px] absolute bottom-1 right-1">📷</span>' : ''}
                     `;
                     div.onclick = () => openScoring(id);
-                    lineCol.appendChild(div);
+                    col.appendChild(div);
                 }
-                uneBlock.appendChild(lineCol);
+                uneBlock.appendChild(col);
             }
             container.appendChild(uneBlock);
         }
     }
 
-    // --- グラフ機能 ---
-    function toggleViewMode() {
-        const map = document.getElementById('fieldMap');
-        const graph = document.getElementById('graphView');
-        const btn = document.getElementById('viewModeBtn');
-
-        if (map.classList.contains('hidden')) {
-            map.classList.remove('hidden');
-            graph.classList.add('hidden');
-            btn.innerText = "📊 グラフ";
-            btn.classList.remove('bg-gray-600');
-            btn.classList.add('bg-purple-700');
-        } else {
-            map.classList.add('hidden');
-            graph.classList.remove('hidden');
-            btn.innerText = "🗺 マップ";
-            btn.classList.remove('bg-purple-700');
-            btn.classList.add('bg-gray-600');
-            renderGraph();
-        }
+    function getHeatmapColor(val, max) {
+        if (val === '評価不能') return state.theme==='dark' ? '#374151' : '#f3f4f6';
+        if (val === '欠株') return state.theme==='dark' ? '#7f1d1d' : '#fee2e2';
+        if (!val) return '';
+        const r = parseFloat(val) / max;
+        const l = state.theme === 'dark' ? 20 + (r * 40) : 95 - (r * 50);
+        return `hsl(142, 70%, ${l}%)`;
     }
 
-    function renderGraph() {
-        const field = state.fields[state.currentField];
-        const sysScores = {}; // { 'コシヒカリ': [5, 4.5, ...], ... }
-
-        Object.keys(field.data).forEach(id => {
-            const sys = field.systems[id] || '(不明)';
-            const score = field.data[id].score;
-            if (score && score !== '欠株' && score !== '評価不能') {
-                if (!sysScores[sys]) sysScores[sys] = [];
-                sysScores[sys].push(parseFloat(score));
-            }
-        });
-
-        const labels = Object.keys(sysScores);
-        if (labels.length === 0) {
-            document.getElementById('noGraphData').classList.remove('hidden');
-            if (chartInstance) chartInstance.destroy();
-            return;
-        }
-        document.getElementById('noGraphData').classList.add('hidden');
-
-        const averages = labels.map(sys => {
-            const sum = sysScores[sys].reduce((a, b) => a + b, 0);
-            return (sum / sysScores[sys].length);
-        });
-
-        // データのソート（平均点が高い順）
-        const combined = labels.map((l, i) => ({ label: l, val: averages[i] }));
-        combined.sort((a, b) => b.val - a.val);
-
-        const ctx = document.getElementById('scoreChart').getContext('2d');
-        if (chartInstance) chartInstance.destroy();
-
-        chartInstance = new Chart(ctx, {
-            type: 'bar',
-            data: {
-                labels: combined.map(c => c.label),
-                datasets: [{
-                    label: '平均スコア',
-                    data: combined.map(c => c.val),
-                    backgroundColor: '#16a34a'
-                }]
-            },
-            options: {
-                responsive: true,
-                scales: { y: { beginAtZero: true, max: field.config.maxScore } }
-            }
-        });
-    }
-
-
-    // --- 入力・写真 ---
-
+    /* ----- Scoring & Photo ----- */
     function openScoring(id) {
         if(window.currentId) document.getElementById(`cell-${window.currentId}`)?.classList.remove('selected');
         window.currentId = id;
         document.getElementById(`cell-${id}`).classList.add('selected');
         
-        const field = state.fields[state.currentField];
-        const data = field.data[id] || { score: null, comment: '', photo: null };
+        const f = state.fields[state.currentField];
+        const d = f.data[id] || { score: null, comment: '' };
 
         document.getElementById('inputModal').classList.remove('hidden');
         document.getElementById('currentIdLabel').innerText = id;
-        document.getElementById('currentSystemLabel').innerText = field.systems[id] || '名称なし';
+        document.getElementById('currentSystemLabel').innerText = f.systems[id] || 'No System Name';
+        document.getElementById('comment').value = d.comment || '';
         
-        // スコアボタン
+        tempPhotoData = d.photo || null;
+        const preview = document.getElementById('photoPreview');
+        document.getElementById('photoInput').value = '';
+        if(tempPhotoData) { preview.src = tempPhotoData; preview.classList.add('active'); }
+        else { preview.classList.remove('active'); preview.src = ''; }
+
         const grid = document.getElementById('scoreGrid');
         grid.innerHTML = '';
-        ['欠株', '評価不能'].forEach((opt, idx) => {
-             grid.innerHTML += `
-                <div>
-                    <input type="radio" name="score" id="sp_${idx}" value="${opt}" class="score-input hidden" ${data.score === opt ? 'checked' : ''}>
-                    <label for="sp_${idx}" class="score-btn special-btn h-full cursor-pointer">${opt}</label>
-                </div>`;
+        ['欠株', '評価不能'].forEach((opt, i) => {
+            grid.innerHTML += `<div class="col-span-1"><input type="radio" name="score" id="sp_${i}" value="${opt}" class="score-input hidden" ${d.score===opt?'checked':''}><label for="sp_${i}" class="score-btn special-btn cursor-pointer text-xs">${opt}</label></div>`;
         });
-        for (let s = 0; s <= field.config.maxScore; s += 0.5) {
-            grid.innerHTML += `
-                <div>
-                    <input type="radio" name="score" id="s${s}" value="${s}" class="score-input hidden" ${data.score == s ? 'checked' : ''}>
-                    <label for="s${s}" class="score-btn block cursor-pointer">${s}</label>
-                </div>`;
+        for (let s = 0; s <= f.config.maxScore; s += 0.5) {
+             grid.innerHTML += `<div><input type="radio" name="score" id="s${s}" value="${s}" class="score-input hidden" ${d.score==s?'checked':''}><label for="s${s}" class="score-btn cursor-pointer">${s}</label></div>`;
         }
-        
-        document.getElementById('comment').value = data.comment;
-        
-        // 写真表示
-        currentPhotoData = data.photo || null;
-        updatePhotoPreview();
     }
 
-    function handlePhotoSelect(event) {
-        const file = event.target.files[0];
+    function handlePhotoSelect(e) {
+        const file = e.target.files[0];
         if (!file) return;
-
-        // 画像圧縮処理 (Canvas使用)
         const reader = new FileReader();
-        reader.onload = function(e) {
+        reader.onload = function(ev) {
             const img = new Image();
             img.onload = function() {
                 const canvas = document.createElement('canvas');
-                // 最大幅 600px にリサイズ
-                const maxWidth = 600;
-                const scale = maxWidth / img.width;
-                canvas.width = maxWidth;
+                const MAX_WIDTH = 600;
+                const scale = MAX_WIDTH / img.width;
+                canvas.width = MAX_WIDTH;
                 canvas.height = img.height * scale;
-                
                 const ctx = canvas.getContext('2d');
                 ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                
-                // JPEG 品質 0.6 で圧縮
-                currentPhotoData = canvas.toDataURL('image/jpeg', 0.6);
-                updatePhotoPreview();
+                tempPhotoData = canvas.toDataURL('image/jpeg', 0.7);
+                const preview = document.getElementById('photoPreview');
+                preview.src = tempPhotoData;
+                preview.classList.add('active');
             };
-            img.src = e.target.result;
+            img.src = ev.target.result;
         };
         reader.readAsDataURL(file);
     }
 
-    function updatePhotoPreview() {
-        const img = document.getElementById('photoPreview');
-        const delBtn = document.getElementById('deletePhotoBtn');
-        if (currentPhotoData) {
-            img.src = currentPhotoData;
-            img.classList.add('show');
-            delBtn.classList.remove('hidden');
-        } else {
-            img.classList.remove('show');
-            delBtn.classList.add('hidden');
-            document.getElementById('photoInput').value = '';
-        }
-    }
-
-    function deletePhoto() {
-        if(confirm("写真を削除しますか？")) {
-            currentPhotoData = null;
-            updatePhotoPreview();
-        }
-    }
-
-    function saveAndNext() {
-        const scoreInput = document.querySelector('input[name="score"]:checked');
-        if(!scoreInput) return alert("スコアを選択してください");
-
-        const dataObj = {
-            score: scoreInput.value,
-            comment: document.getElementById('comment').value,
-            photo: currentPhotoData,
-            timestamp: new Date().toISOString()
+    function saveAndMove(dir) {
+        const input = document.querySelector('input[name="score"]:checked');
+        if(!input) return alert("Please select a score.");
+        const d = { 
+            score: input.value, 
+            comment: document.getElementById('comment').value, 
+            photo: tempPhotoData, 
+            timestamp: new Date().toISOString() 
         };
-
         if (state.gpsEnabled && navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition((pos) => {
-                dataObj.lat = pos.coords.latitude;
-                dataObj.lon = pos.coords.longitude;
-                commitSave(dataObj);
-            }, () => commitSave(dataObj), { timeout: 3000 });
-        } else {
-            commitSave(dataObj);
-        }
+             navigator.geolocation.getCurrentPosition(
+                 (p) => { d.lat = p.coords.latitude; d.lon = p.coords.longitude; commit(d, dir, true); },
+                 () => { commit(d, dir, true); }, { enableHighAccuracy: true, timeout: 2000 }
+             );
+        } else commit(d, dir, true);
     }
-
-    function commitSave(dataObj) {
-        state.fields[state.currentField].data[window.currentId] = dataObj;
-        saveState();
-        renderMap();
-        
-        // 自動遷移
-        const currentCell = document.getElementById(`cell-${window.currentId}`);
-        let next = currentCell.nextElementSibling;
-        if(!next) {
-             const currentLine = currentCell.parentElement;
-             const nextLine = currentLine.nextElementSibling;
-             if (nextLine?.classList.contains('line-column')) next = nextLine.querySelector('.plant-cell');
-             else {
-                 const nextUne = currentLine.parentElement.nextElementSibling;
-                 if(nextUne) next = nextUne.querySelector('.plant-cell');
-             }
+    function moveWithoutSave(dir) { commit(null, dir, false); }
+    function commit(dataObj, dir, shouldSave) {
+        if(shouldSave && dataObj) {
+            state.fields[state.currentField].data[window.currentId] = dataObj;
+            saveState(); renderMap();
         }
-
+        const current = document.getElementById(`cell-${window.currentId}`);
+        const next = findNeighbor(current, dir);
         if(next) {
-            setTimeout(() => openScoring(next.id.replace('cell-', '')), 100);
+            current.scrollIntoView({behavior:'smooth', block:'center', inline:'center'});
+            setTimeout(() => { openScoring(next.id.replace('cell-', '')); }, 50);
         } else {
             closeModal();
-            alert("終了");
+            if(dir === 1) alert("End of field reached.");
         }
     }
-
+    function findNeighbor(cell, dir) {
+        if(!cell) return null;
+        const all = Array.from(document.querySelectorAll('.plant-cell'));
+        const idx = all.indexOf(cell);
+        if(idx === -1) return null;
+        return all[idx + dir] || null;
+    }
     function closeModal() {
         document.getElementById('inputModal').classList.add('hidden');
         if(window.currentId) document.getElementById(`cell-${window.currentId}`)?.classList.remove('selected');
         window.currentId = null;
+        tempPhotoData = null;
     }
 
-    // --- 管理・設定 ---
-
-    function addNewField() {
-        const name = prompt("新しい圃場名:");
-        if(name && !state.fields[name]) {
-            state.fields[name] = { config: {rows:3, lines:2, plants:5, maxScore:5}, data:{}, systems:{} };
-            switchField(name);
-        }
+    /* ----- Utilities & IO ----- */
+    function toggleTheme() {
+        state.theme = state.theme === 'light' ? 'dark' : 'light';
+        applyTheme(state.theme); saveState(); renderMap();
     }
-
-    function switchField(name) {
-        state.currentField = name;
-        saveState();
-        renderTabs();
-        renderMap();
-        // グラフモードならグラフも更新
-        if (!document.getElementById('graphView').classList.contains('hidden')) {
-            renderGraph();
-        }
+    function applyTheme(t) {
+        if(t === 'dark') document.documentElement.classList.add('dark');
+        else document.documentElement.classList.remove('dark');
     }
+    function updateProgress() {
+        const f = state.fields[state.currentField];
+        const total = f.config.rows * f.config.lines * f.config.plants;
+        const done = Object.keys(f.data).length;
+        const pct = Math.round((done / total) * 100);
+        document.getElementById('progressBar').style.width = `${pct}%`;
+        document.getElementById('progressText').innerText = `${pct}% DONE`;
+    }
+    function initSpeech() {
+        if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+            const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+            recognition = new SR();
+            recognition.lang = 'ja-JP';
+            recognition.onresult = (e) => {
+                const t = e.results[0][0].transcript;
+                const ta = document.getElementById('comment');
+                ta.value = (ta.value + ' ' + t).trim();
+                stopSpeech();
+            };
+            recognition.onerror = stopSpeech; recognition.onend = stopSpeech;
+        } else document.getElementById('micBtn').style.display = 'none';
+    }
+    function toggleSpeech() {
+        const btn = document.getElementById('micBtn');
+        if(btn.style.color === 'red') recognition.stop();
+        else { btn.style.color = 'red'; recognition.start(); }
+    }
+    function stopSpeech() { document.getElementById('micBtn').style.color = ''; }
 
     function openConfig() {
         const cfg = state.fields[state.currentField].config;
-        document.getElementById('renameFieldInput').value = state.currentField;
-        document.getElementById('cfg_useGPS').checked = state.gpsEnabled;
-        document.getElementById('cfg_rows').value = cfg.rows;
-        document.getElementById('cfg_lines').value = cfg.lines;
-        document.getElementById('cfg_plants').value = cfg.plants;
-        document.getElementById('cfg_maxScore').value = cfg.maxScore;
+        ['rows','lines','plants','maxScore'].forEach(k => document.getElementById(`cfg_${k}`).value = cfg[k]);
         document.getElementById('configModal').classList.remove('hidden');
     }
-
-    function renameField() {
-        const newName = document.getElementById('renameFieldInput').value.trim();
-        const oldName = state.currentField;
-        if (!newName || newName === oldName) return;
-        if (state.fields[newName]) return alert('その名前は既に存在します');
-
-        state.fields[newName] = state.fields[oldName];
-        delete state.fields[oldName];
-        state.currentField = newName;
-        saveState();
-        alert('変更しました');
-        renderTabs();
-    }
-
-    function deleteField() {
-        const name = state.currentField;
-        if (Object.keys(state.fields).length <= 1) return alert('最後の1つは削除できません');
-        if (!confirm(`本当に「${name}」を削除しますか？データは復元できません。`)) return;
-
-        delete state.fields[name];
-        state.currentField = Object.keys(state.fields)[0];
-        saveState();
-        document.getElementById('configModal').classList.add('hidden');
-        renderTabs();
-        renderMap();
-    }
-
     function saveFieldConfig() {
         state.gpsEnabled = document.getElementById('cfg_useGPS').checked;
         const f = state.fields[state.currentField];
-        f.config.rows = parseInt(document.getElementById('cfg_rows').value);
-        f.config.lines = parseInt(document.getElementById('cfg_lines').value);
-        f.config.plants = parseInt(document.getElementById('cfg_plants').value);
-        f.config.maxScore = parseFloat(document.getElementById('cfg_maxScore').value);
+        ['rows','lines','plants','maxScore'].forEach(k => f.config[k] = parseFloat(document.getElementById(`cfg_${k}`).value));
         saveState();
         document.getElementById('configModal').classList.add('hidden');
         renderMap();
     }
+    
+    // 追加機能: 圃場削除
+    function deleteCurrentField() {
+        const fieldName = state.currentField;
+        if(Object.keys(state.fields).length <= 1) {
+            alert("This is the only field available. Cannot delete.\n(最後の1つの圃場は削除できません)");
+            return;
+        }
+        if(confirm(`Are you sure you want to delete "${fieldName}"?\nThis cannot be undone.\n\n本当に "${fieldName}" を削除しますか？\nこの操作は取り消せません。`)) {
+            delete state.fields[fieldName];
+            state.currentField = Object.keys(state.fields)[0];
+            saveState();
+            updateSelector();
+            renderMap();
+            updateProgress();
+            document.getElementById('configModal').classList.add('hidden');
+        }
+    }
 
-    function importSystemNames(event) {
-        const file = event.target.files[0];
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            const lines = e.target.result.split('\n');
-            lines.forEach(line => {
-                const [id, name] = line.split(',');
-                if(id && name) state.fields[state.currentField].systems[id.trim()] = name.trim();
+    function switchField() {
+        const v = document.getElementById('fieldSelector').value;
+        if(v === '__NEW__') {
+            const n = prompt("New Field Name:");
+            if(n && !state.fields[n]) {
+                state.fields[n] = { config: {rows:4, lines:2, plants:5, maxScore:5}, data:{}, systems:{} };
+                state.currentField = n;
+            }
+        } else state.currentField = v;
+        updateSelector(); saveState(); renderMap(); updateProgress();
+    }
+    function updateSelector() {
+        const s = document.getElementById('fieldSelector');
+        s.innerHTML = '';
+        Object.keys(state.fields).forEach(n => s.innerHTML += `<option value="${n}" ${n===state.currentField?'selected':''}>${n}</option>`);
+        s.innerHTML += `<option value="__NEW__">+ NEW FIELD</option>`;
+    }
+    
+    function importSystemNames(e) {
+        const file = e.target.files[0];
+        if(!file) return;
+        const r = new FileReader();
+        r.onload = (ev) => {
+            const lines = ev.target.result.split(/\r\n|\n/);
+            let count = 0;
+            lines.forEach(l => {
+                const parts = l.split(',');
+                if(parts.length >= 2) {
+                    const id = parts[0].trim();
+                    const name = parts[1].trim();
+                    if(id && name) {
+                        state.fields[state.currentField].systems[id] = name;
+                        count++;
+                    }
+                }
             });
             saveState();
             renderMap();
-            alert('読込完了');
+            alert(`${count}件の系統名をインポートしました`);
+            e.target.value = '';
         };
-        reader.readAsText(file);
+        r.readAsText(file);
     }
 
     function exportData() {
-        let csv = "圃場,座標,系統名,スコア,コメント,写真有無,緯度,経度,日時\n";
-        Object.keys(state.fields).forEach(fname => {
-            const f = state.fields[fname];
-            for (const id in f.data) {
+        let csv = "Field,ID,System,Score,Comment,Lat,Lon,Time,HasPhoto\n";
+        Object.keys(state.fields).forEach(fn => {
+            const f = state.fields[fn];
+            for(const id in f.data) {
                 const d = f.data[id];
-                const hasPhoto = d.photo ? 'あり' : '';
-                csv += `${fname},${id},${f.systems[id]||''},${d.score},"${d.comment}",${hasPhoto},${d.lat||''},${d.lon||''},${d.timestamp||''}\n`;
+                const hasP = d.photo ? 'Yes' : 'No';
+                csv += `${fn},${id},${f.systems[id]||''},${d.score},"${d.comment}",${d.lat||''},${d.lon||''},${d.timestamp||''},${hasP}\n`;
             }
         });
-        const blob = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), csv], { type: 'text/csv;charset=utf-8;' });
         const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = `FieldData_V2_${new Date().toISOString().slice(0,10)}.csv`;
+        a.href = URL.createObjectURL(new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), csv], {type:'text/csv'}));
+        a.download = `FieldEval_v3_${new Date().toISOString().slice(0,10)}.csv`;
         a.click();
     }
 </script>
