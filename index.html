@@ -7,7 +7,7 @@
     <meta name="theme-color" content="#0f172a">
     <link rel="apple-touch-icon" href="icon.png">
     
-    <title>FieldEval World Edition v3.4</title>
+    <title>FieldEval Pro v4.0</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
     <script>
@@ -30,7 +30,7 @@
         #mapContainer {
             overflow: auto;
             width: 100%;
-            height: calc(100vh - 140px);
+            height: calc(100vh - 160px); /* タブ追加分調整 */
             touch-action: pan-x pan-y;
             position: relative;
             background-color: #f3f4f6;
@@ -94,6 +94,26 @@
         /* 写真プレビュー */
         .photo-thumb { width: 60px; height: 60px; object-fit: cover; border-radius: 8px; border: 2px solid #ccc; display: none; }
         .photo-thumb.active { display: block; }
+
+        /* タブデザイン */
+        .tab-container {
+            display: flex; gap: 4px; overflow-x: auto; padding: 4px;
+            scrollbar-width: none;
+        }
+        .tab-container::-webkit-scrollbar { display: none; }
+        .tab-item {
+            padding: 8px 16px; border-radius: 8px 8px 0 0; 
+            font-weight: bold; font-size: 0.8rem; white-space: nowrap;
+            background: rgba(255,255,255,0.5); color: #64748b; cursor: pointer;
+            border-bottom: 2px solid transparent;
+        }
+        .dark .tab-item { background: rgba(30,41,59,0.5); color: #94a3b8; }
+        .tab-item.active {
+            background: white; color: #2563eb; border-bottom: 2px solid #2563eb;
+        }
+        .dark .tab-item.active {
+            background: #1e293b; color: #60a5fa; border-bottom: 2px solid #60a5fa;
+        }
     </style>
 </head>
 <body class="bg-gray-100 text-slate-800 dark:bg-dark-bg dark:text-gray-100 transition-colors duration-300 flex flex-col h-screen overflow-hidden">
@@ -103,11 +123,12 @@
 </div>
 
 <div class="bg-white/90 dark:bg-dark-bg/95 backdrop-blur border-b border-gray-200 dark:border-dark-border z-40 shrink-0">
+    <div id="tabs" class="tab-container bg-gray-200 dark:bg-gray-800 border-b border-gray-300 dark:border-gray-700"></div>
+    
     <div class="h-1 w-full bg-gray-200 dark:bg-gray-800"><div id="progressBar" class="h-full bg-blue-600 transition-all duration-500 w-0"></div></div>
     
     <div class="flex justify-between items-center p-2 max-w-7xl mx-auto overflow-x-auto gap-4">
         <div class="flex flex-col min-w-[120px]">
-            <select id="fieldSelector" onchange="switchField()" class="bg-transparent font-black text-lg outline-none cursor-pointer"></select>
             <span id="progressText" class="text-[9px] font-bold text-gray-400 uppercase tracking-widest">0% DONE</span>
         </div>
 
@@ -146,26 +167,58 @@
 </div>
 
 <div id="configModal" class="hidden fixed inset-0 bg-black/80 z-[80] flex items-center justify-center p-4 backdrop-blur-sm">
-    <div class="bg-white dark:bg-dark-surface p-6 rounded-2xl w-full max-w-sm shadow-2xl">
-        <h3 class="font-black text-2xl mb-6">Setup (設定)</h3>
+    <div class="bg-white dark:bg-dark-surface p-6 rounded-2xl w-full max-w-sm shadow-2xl max-h-[90vh] overflow-y-auto">
+        <h3 class="font-black text-2xl mb-4">Field Settings</h3>
+        
         <div class="space-y-4 font-bold text-sm">
+            <div>
+                <label class="text-xs text-gray-500">Field Name (フィールド名)</label>
+                <input type="text" id="cfg_fieldName" class="w-full bg-gray-100 dark:bg-black/20 p-2 rounded-lg font-bold border border-gray-300 dark:border-gray-600">
+            </div>
+
+            <div class="grid grid-cols-2 gap-4">
+                <div class="col-span-2">
+                    <label class="text-xs text-gray-500">Survey Date (調査日)</label>
+                    <input type="date" id="meta_date" class="w-full bg-gray-100 dark:bg-black/20 p-2 rounded-lg font-bold">
+                </div>
+                <div class="col-span-2">
+                    <label class="text-xs text-gray-500">Surveyor (調査者)</label>
+                    <input type="text" id="meta_surveyor" class="w-full bg-gray-100 dark:bg-black/20 p-2 rounded-lg font-bold">
+                </div>
+                <div class="col-span-2">
+                    <label class="text-xs text-gray-500">Crop Name (作物名)</label>
+                    <input type="text" id="meta_crop" class="w-full bg-gray-100 dark:bg-black/20 p-2 rounded-lg font-bold">
+                </div>
+            </div>
+
+            <div class="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-xl border border-blue-100 dark:border-blue-800">
+                <label class="text-xs text-blue-500 font-bold block mb-2">Field Location (圃場の場所)</label>
+                <div class="flex gap-2">
+                    <button onclick="setCurrentLocation()" class="bg-blue-600 text-white px-3 py-2 rounded-lg text-xs font-bold">📍 Get Current GPS</button>
+                    <a id="mapsLink" href="#" target="_blank" class="hidden text-blue-600 text-xs font-bold underline flex items-center">Open Maps ↗</a>
+                </div>
+                <input type="hidden" id="meta_lat"><input type="hidden" id="meta_lon">
+                <p id="locationStatus" class="text-[10px] text-gray-400 mt-1">Not set</p>
+            </div>
+
             <label class="flex justify-between items-center p-3 bg-gray-50 dark:bg-black/20 rounded-xl">
-                <span>📍 GPS Record (位置情報記録)</span>
+                <span>📍 Record GPS per plant</span>
                 <input type="checkbox" id="cfg_useGPS" class="w-6 h-6 accent-blue-600">
             </label>
-            <div class="grid grid-cols-2 gap-4">
+            
+            <div class="grid grid-cols-2 gap-4 border-t pt-4 dark:border-gray-700">
                 <div><label class="text-gray-400 text-xs">Rows (畝数)</label><input type="number" id="cfg_rows" class="w-full bg-gray-100 dark:bg-black/20 p-2 rounded-lg text-center font-black"></div>
                 <div><label class="text-gray-400 text-xs">Lines (条数)</label><input type="number" id="cfg_lines" class="w-full bg-gray-100 dark:bg-black/20 p-2 rounded-lg text-center font-black"></div>
-                <div><label class="text-gray-400 text-xs">Plants (個体数/条)</label><input type="number" id="cfg_plants" class="w-full bg-gray-100 dark:bg-black/20 p-2 rounded-lg text-center font-black"></div>
-                <div><label class="text-gray-400 text-xs">Max Score (最大値)</label><input type="number" id="cfg_maxScore" class="w-full bg-gray-100 dark:bg-black/20 p-2 rounded-lg text-center font-black"></div>
+                <div><label class="text-gray-400 text-xs">Plants (個体数)</label><input type="number" id="cfg_plants" class="w-full bg-gray-100 dark:bg-black/20 p-2 rounded-lg text-center font-black"></div>
+                <div><label class="text-gray-400 text-xs">Max Score</label><input type="number" id="cfg_maxScore" class="w-full bg-gray-100 dark:bg-black/20 p-2 rounded-lg text-center font-black"></div>
             </div>
             
             <div class="pt-4 border-t dark:border-dark-border space-y-2">
                 <button onclick="resetFieldData()" class="w-full py-2 text-orange-500 font-bold hover:bg-orange-50 dark:hover:bg-orange-900/20 rounded-lg transition-colors text-xs">
-                    ⚠️ Reset Data Only (評価データのみ消去)
+                    ⚠️ Reset Data Only
                 </button>
                 <button onclick="deleteCurrentField()" class="w-full py-2 text-red-500 font-bold hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors text-xs">
-                    🗑️ Delete This Field (この圃場を削除)
+                    🗑️ Delete This Field
                 </button>
             </div>
         </div>
@@ -218,96 +271,86 @@
 </div>
 
 <script>
-    // Service Worker Registration for Offline Capability
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
             navigator.serviceWorker.register('./sw.js')
-                .then(reg => console.log('SW registered: ', reg))
-                .catch(err => console.log('SW registration failed: ', err));
+                .then(reg => console.log('SW registered'))
+                .catch(err => console.log('SW fail', err));
         });
     }
 
-    // State definition with color map support
-    let state = JSON.parse(localStorage.getItem('field_eval_world_v3_4')) || {
+    let state = JSON.parse(localStorage.getItem('field_eval_v4')) || {
         currentField: 'Field 1',
         gpsEnabled: false,
         theme: 'light',
-        systemColors: {}, // Store custom colors for system names
+        systemColors: {},
         fields: {
-            'Field 1': { config: {rows:4, lines:2, plants:5, maxScore:5}, data: {}, systems: {} }
+            'Field 1': { 
+                config: {rows:4, lines:2, plants:5, maxScore:5}, 
+                data: {}, 
+                systems: {},
+                meta: { date: '', surveyor: '', crop: '', lat: null, lon: null }
+            }
         }
     };
     
+    // データ構造のマイグレーション（古いバージョンからの移行用）
+    if(!state.fields[state.currentField].meta) {
+        Object.keys(state.fields).forEach(k => {
+            if(!state.fields[k].meta) state.fields[k].meta = { date: '', surveyor: '', crop: '', lat: null, lon: null };
+        });
+    }
+
     let currentScale = 1;
     let tempPhotoData = null;
 
     window.onload = () => {
         applyTheme(state.theme);
-        document.getElementById('cfg_useGPS').checked = state.gpsEnabled;
-        updateSelector();
+        updateSelector(); // タブ描画
         renderMap();
         updateProgress();
         initZoom();
     };
 
     function saveState() {
-        localStorage.setItem('field_eval_world_v3_4', JSON.stringify(state));
+        localStorage.setItem('field_eval_v4', JSON.stringify(state));
         updateProgress();
     }
 
-    /* ----- Zoom Logic ----- */
+    /* Zoom Logic */
     function initZoom() {
         const container = document.getElementById('mapContainer');
-        let initialDistance = 0;
-        let initialScale = 1;
+        let initialDistance = 0; let initialScale = 1;
         container.addEventListener('touchstart', (e) => {
-            if (e.touches.length === 2) {
-                e.preventDefault();
-                initialDistance = getDistance(e.touches[0], e.touches[1]);
-                initialScale = currentScale;
-            }
+            if (e.touches.length === 2) { e.preventDefault(); initialDistance = getDistance(e.touches[0], e.touches[1]); initialScale = currentScale; }
         }, { passive: false });
         container.addEventListener('touchmove', (e) => {
-            if (e.touches.length === 2) {
-                e.preventDefault();
-                const dist = getDistance(e.touches[0], e.touches[1]);
-                const delta = dist / initialDistance;
-                setZoom(initialScale * delta);
-            }
+            if (e.touches.length === 2) { e.preventDefault(); const dist = getDistance(e.touches[0], e.touches[1]); setZoom(initialScale * (dist/initialDistance)); }
         }, { passive: false });
         container.addEventListener('wheel', (e) => {
-            if(e.shiftKey || e.ctrlKey) {
-                e.preventDefault();
-                setZoom(currentScale + (e.deltaY * -0.001));
-            }
+            if(e.shiftKey || e.ctrlKey) { e.preventDefault(); setZoom(currentScale + (e.deltaY * -0.001)); }
         }, { passive: false });
     }
     function getDistance(t1, t2) { return Math.hypot(t2.pageX - t1.pageX, t2.pageY - t1.pageY); }
     function setZoom(scale) {
         currentScale = Math.min(Math.max(scale, 0.5), 3.0);
         document.getElementById('fieldMap').style.transform = `scale(${currentScale})`;
-        const slider = document.getElementById('zoomSlider');
-        if(slider) slider.value = currentScale;
+        document.getElementById('zoomSlider').value = currentScale;
     }
     function manualZoom(val) { setZoom(parseFloat(val)); }
 
-    /* ----- Color Logic ----- */
+    /* Helper */
     function getSystemColor(name) {
         if(!name) return 'black';
-        // If custom color exists, use it
         if(state.systemColors && state.systemColors[name]) return state.systemColors[name];
-        
-        // Generate consistent color from string hash
         let hash = 0;
-        for (let i = 0; i < name.length; i++) {
-            hash = name.charCodeAt(i) + ((hash << 5) - hash);
-        }
-        // HSL to ensure visibility (avoid too light/dark)
+        for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
         const h = Math.abs(hash % 360);
         return `hsl(${h}, 70%, 40%)`; 
     }
+    function rgbToHex(color) { return color.startsWith('#') ? color : '#000000'; }
 
-    /* ----- Render Map ----- */
+    /* Map Rendering */
     function renderMap() {
         const field = state.fields[state.currentField];
         const { rows, lines, plants, maxScore } = field.config;
@@ -335,12 +378,11 @@
                     if (val !== null && val !== 'RESET') {
                         div.style.backgroundColor = getHeatmapColor(val, maxScore);
                     }
-                    
-                    // Use system color
                     const sysColor = state.theme === 'dark' && !state.systemColors[sys] ? '#cbd5e1' : getSystemColor(sys);
 
+                    // 修正点: 左上の番号を黒・2倍サイズに変更
                     div.innerHTML = `
-                        <span class="absolute top-1 left-2 text-[9px] font-bold opacity-50 text-gray-800 dark:text-gray-300">#${p}</span>
+                        <span class="absolute top-1 left-2 text-lg font-black opacity-80 text-black">#${p}</span>
                         ${hasPhoto ? '<span class="absolute top-1 right-1 text-xs">📷</span>' : ''}
                         <div class="w-full text-center px-1 text-[18px] font-black leading-tight mt-3 break-words overflow-hidden max-h-[50px]" style="color:${sysColor}">${sys}</div>
                         <span class="text-2xl font-black leading-none mt-1 text-gray-800 dark:text-gray-100">
@@ -365,7 +407,7 @@
         return `hsl(142, 70%, ${l}%)`;
     }
 
-    /* ----- Scoring & Photo ----- */
+    /* Scoring Modal */
     function openScoring(id) {
         if(window.currentId) document.getElementById(`cell-${window.currentId}`)?.classList.remove('selected');
         window.currentId = id;
@@ -377,13 +419,8 @@
 
         document.getElementById('inputModal').classList.remove('hidden');
         document.getElementById('currentIdLabel').innerText = id;
-        
-        // System Name Editing & Color
-        const sysInput = document.getElementById('currentSystemInput');
-        sysInput.value = sysName;
-        const colorInput = document.getElementById('currentSystemColor');
-        colorInput.value = rgbToHex(getSystemColor(sysName));
-        
+        document.getElementById('currentSystemInput').value = sysName;
+        document.getElementById('currentSystemColor').value = rgbToHex(getSystemColor(sysName));
         document.getElementById('comment').value = d.comment || '';
         
         tempPhotoData = d.photo || null;
@@ -392,111 +429,61 @@
         const grid = document.getElementById('scoreGrid');
         grid.innerHTML = '';
         
-        // RESET Button (Score Clear)
-        grid.innerHTML += `<div class="col-span-1"><input type="radio" name="score" id="sp_reset" value="RESET" class="score-input hidden"><label for="sp_reset" class="score-btn reset-btn cursor-pointer text-xs">RESET<br>(未評価)</label></div>`;
-
-        ['欠株', '評価不能'].forEach((opt, i) => {
-            grid.innerHTML += `<div class="col-span-1"><input type="radio" name="score" id="sp_${i}" value="${opt}" class="score-input hidden" ${d.score===opt?'checked':''}><label for="sp_${i}" class="score-btn special-btn cursor-pointer text-xs">${opt}</label></div>`;
-        });
+        // 修正点: スコアボタン(数値)を先に表示
         for (let s = 0; s <= f.config.maxScore; s += 0.5) {
              grid.innerHTML += `<div><input type="radio" name="score" id="s${s}" value="${s}" class="score-input hidden" ${d.score==s?'checked':''}><label for="s${s}" class="score-btn cursor-pointer">${s}</label></div>`;
         }
-    }
-
-    function rgbToHex(color) {
-        // Simple helper, for HSL handling mostly rely on browser or default black
-        if(color.startsWith('#')) return color;
-        // Basic fallback for HSL/RGB conversion is complex, defaulting to black for picker init if complex
-        // In this simple version, we trust the stored hex or return black
-        return '#000000';
+        
+        // 修正点: 特殊ボタン（RESET, 欠株, 評価不能）を最後に移動
+        const specials = ['RESET', '欠株', '評価不能'];
+        specials.forEach((opt, i) => {
+            const label = opt === 'RESET' ? 'RESET<br>(未評価)' : opt;
+            const cls = opt === 'RESET' ? 'reset-btn' : 'special-btn';
+            grid.innerHTML += `<div class="col-span-1"><input type="radio" name="score" id="sp_${i}" value="${opt}" class="score-input hidden" ${d.score===opt?'checked':''}><label for="sp_${i}" class="score-btn ${cls} cursor-pointer text-xs">${label}</label></div>`;
+        });
     }
 
     function handlePhotoSelect(e) {
         const file = e.target.files[0];
         if (!file) return;
-        const reader = new FileReader();
-        reader.onload = function(ev) {
+        const r = new FileReader();
+        r.onload = function(ev) {
             const img = new Image();
             img.onload = function() {
-                const canvas = document.createElement('canvas');
-                const MAX_WIDTH = 600;
-                const scale = MAX_WIDTH / img.width;
-                canvas.width = MAX_WIDTH;
-                canvas.height = img.height * scale;
-                const ctx = canvas.getContext('2d');
-                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                tempPhotoData = canvas.toDataURL('image/jpeg', 0.7);
+                const c = document.createElement('canvas');
+                const scale = 600 / img.width;
+                c.width = 600; c.height = img.height * scale;
+                c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+                tempPhotoData = c.toDataURL('image/jpeg', 0.7);
                 updatePhotoPreview();
             };
             img.src = ev.target.result;
         };
-        reader.readAsDataURL(file);
+        r.readAsDataURL(file);
     }
-
-    function removePhoto() {
-        if(confirm('Delete photo?')) {
-            tempPhotoData = null;
-            document.getElementById('photoInput').value = '';
-            updatePhotoPreview();
-        }
-    }
-
+    function removePhoto() { if(confirm('Delete photo?')) { tempPhotoData = null; document.getElementById('photoInput').value = ''; updatePhotoPreview(); } }
     function updatePhotoPreview() {
-        const preview = document.getElementById('photoPreview');
-        const delBtn = document.getElementById('deletePhotoBtn');
-        if(tempPhotoData) { 
-            preview.src = tempPhotoData; 
-            preview.classList.add('active'); 
-            delBtn.classList.remove('hidden');
-            delBtn.classList.add('flex');
-        } else { 
-            preview.classList.remove('active'); 
-            preview.src = ''; 
-            delBtn.classList.add('hidden');
-            delBtn.classList.remove('flex');
-        }
+        const p = document.getElementById('photoPreview');
+        const b = document.getElementById('deletePhotoBtn');
+        if(tempPhotoData) { p.src = tempPhotoData; p.classList.add('active'); b.classList.remove('hidden'); b.classList.add('flex'); }
+        else { p.classList.remove('active'); p.src = ''; b.classList.add('hidden'); b.classList.remove('flex'); }
     }
 
     function saveAndMove(dir) {
         const input = document.querySelector('input[name="score"]:checked');
-        // If not selected and not clearing, alert. But if text/photo changed, allow save without score change?
-        // Current logic requires score selection to proceed or "No Save".
-        // With RESET option, user selects RESET to clear.
-        
-        if(!input) {
-            alert("Please select a score or RESET.");
-            return;
-        }
+        if(!input) { alert("Please select a score or RESET."); return; }
 
-        // Save System Name and Color
-        const newSysName = document.getElementById('currentSystemInput').value;
-        const newColor = document.getElementById('currentSystemColor').value;
-        
-        state.fields[state.currentField].systems[window.currentId] = newSysName;
-        if(!state.systemColors) state.systemColors = {};
-        state.systemColors[newSysName] = newColor;
-
-        let d = null;
+        const newSys = document.getElementById('currentSystemInput').value;
+        const newCol = document.getElementById('currentSystemColor').value;
+        state.fields[state.currentField].systems[window.currentId] = newSys;
+        state.systemColors[newSys] = newCol;
 
         if (input.value === 'RESET') {
-            // Remove data entry
-            // But we might want to keep comment/photo? Usually reset means clear score. 
-            // If user wants to clear everything, we remove the key.
-            // Let's remove the entry from data to be clean "Un-evaluated".
             delete state.fields[state.currentField].data[window.currentId];
-            saveState(); renderMap();
-            // Move next
-            commit(null, dir, false); 
-            return;
+            saveState(); renderMap(); commit(null, dir, false); return;
         }
 
-        d = { 
-            score: input.value, 
-            comment: document.getElementById('comment').value, 
-            photo: tempPhotoData, 
-            timestamp: new Date().toISOString() 
-        };
-
+        const d = { score: input.value, comment: document.getElementById('comment').value, photo: tempPhotoData, timestamp: new Date().toISOString() };
         if (state.gpsEnabled && navigator.geolocation) {
              navigator.geolocation.getCurrentPosition(
                  (p) => { d.lat = p.coords.latitude; d.lon = p.coords.longitude; commit(d, dir, true); },
@@ -504,76 +491,219 @@
              );
         } else commit(d, dir, true);
     }
-
     function moveWithoutSave(dir) { commit(null, dir, false); }
-
-    function commit(dataObj, dir, shouldSave) {
-        if(shouldSave && dataObj) {
-            state.fields[state.currentField].data[window.currentId] = dataObj;
-            saveState(); renderMap();
-        }
-        const current = document.getElementById(`cell-${window.currentId}`);
-        const next = findNeighbor(current, dir);
-        if(next) {
-            current.scrollIntoView({behavior:'smooth', block:'center', inline:'center'});
-            setTimeout(() => { openScoring(next.id.replace('cell-', '')); }, 50);
-        } else {
-            closeModal();
-            if(dir === 1) alert("End of field reached.");
-        }
+    function commit(obj, dir, save) {
+        if(save && obj) { state.fields[state.currentField].data[window.currentId] = obj; saveState(); renderMap(); }
+        const cur = document.getElementById(`cell-${window.currentId}`);
+        const next = findNeighbor(cur, dir);
+        if(next) { cur.scrollIntoView({behavior:'smooth', block:'center'}); setTimeout(() => openScoring(next.id.replace('cell-', '')), 50); }
+        else { closeModal(); if(dir===1) alert("End of field."); }
     }
-
     function findNeighbor(cell, dir) {
-        if(!cell) return null;
         const all = Array.from(document.querySelectorAll('.plant-cell'));
         const idx = all.indexOf(cell);
-        if(idx === -1) return null;
         return all[idx + dir] || null;
     }
     function closeModal() {
         document.getElementById('inputModal').classList.add('hidden');
         if(window.currentId) document.getElementById(`cell-${window.currentId}`)?.classList.remove('selected');
         window.currentId = null;
-        tempPhotoData = null;
     }
 
-    /* ----- Utilities & IO ----- */
-    function toggleTheme() {
-        state.theme = state.theme === 'light' ? 'dark' : 'light';
-        applyTheme(state.theme); saveState(); renderMap();
-    }
-    function applyTheme(t) {
-        if(t === 'dark') document.documentElement.classList.add('dark');
-        else document.documentElement.classList.remove('dark');
-    }
-    function updateProgress() {
+    /* Configuration & Metadata */
+    function openConfig() {
         const f = state.fields[state.currentField];
-        const total = f.config.rows * f.config.lines * f.config.plants;
-        const done = Object.keys(f.data).length;
-        const pct = Math.round((done / total) * 100);
-        document.getElementById('progressBar').style.width = `${pct}%`;
-        document.getElementById('progressText').innerText = `${pct}% DONE`;
+        const c = f.config;
+        const m = f.meta || {};
+        ['rows','lines','plants','maxScore'].forEach(k => document.getElementById(`cfg_${k}`).value = c[k]);
+        document.getElementById('cfg_useGPS').checked = state.gpsEnabled;
+        document.getElementById('cfg_fieldName').value = state.currentField;
+        
+        // メタデータ読み込み
+        document.getElementById('meta_date').value = m.date || '';
+        document.getElementById('meta_surveyor').value = m.surveyor || '';
+        document.getElementById('meta_crop').value = m.crop || '';
+        
+        // 場所表示
+        const locStat = document.getElementById('locationStatus');
+        const link = document.getElementById('mapsLink');
+        if(m.lat && m.lon) {
+            locStat.innerText = `Saved: ${m.lat.toFixed(5)}, ${m.lon.toFixed(5)}`;
+            link.href = `https://www.google.com/maps?q=${m.lat},${m.lon}`;
+            link.classList.remove('hidden');
+        } else {
+            locStat.innerText = "Not set";
+            link.classList.add('hidden');
+        }
+        
+        document.getElementById('configModal').classList.remove('hidden');
     }
 
-    /* Stats, Config, Export logic ... */
+    function setCurrentLocation() {
+        if(!navigator.geolocation) return alert("Geolocation is not supported.");
+        navigator.geolocation.getCurrentPosition(pos => {
+            const f = state.fields[state.currentField];
+            if(!f.meta) f.meta = {};
+            f.meta.lat = pos.coords.latitude;
+            f.meta.lon = pos.coords.longitude;
+            openConfig(); // UI更新
+            alert("Location saved!");
+        });
+    }
+
+    function saveFieldConfig() {
+        state.gpsEnabled = document.getElementById('cfg_useGPS').checked;
+        
+        // フィールド名変更処理
+        const oldName = state.currentField;
+        const newName = document.getElementById('cfg_fieldName').value.trim();
+        if(newName && newName !== oldName) {
+            if(state.fields[newName]) return alert("Field name already exists.");
+            state.fields[newName] = state.fields[oldName];
+            delete state.fields[oldName];
+            state.currentField = newName;
+        }
+
+        const f = state.fields[state.currentField];
+        ['rows','lines','plants','maxScore'].forEach(k => f.config[k] = parseFloat(document.getElementById(`cfg_${k}`).value));
+        
+        // メタデータ保存
+        if(!f.meta) f.meta = {};
+        f.meta.date = document.getElementById('meta_date').value;
+        f.meta.surveyor = document.getElementById('meta_surveyor').value;
+        f.meta.crop = document.getElementById('meta_crop').value;
+
+        saveState();
+        document.getElementById('configModal').classList.add('hidden');
+        updateSelector();
+        renderMap();
+    }
+    
+    function resetFieldData() {
+        if(confirm(`⚠️ Clear all DATA for ${state.currentField}?`)) {
+            state.fields[state.currentField].data = {};
+            saveState(); renderMap(); updateProgress(); document.getElementById('configModal').classList.add('hidden');
+        }
+    }
+    function deleteCurrentField() {
+        if(Object.keys(state.fields).length <= 1) return alert("Cannot delete last field.");
+        if(confirm(`Delete field "${state.currentField}"?`)) {
+            delete state.fields[state.currentField];
+            state.currentField = Object.keys(state.fields)[0];
+            saveState(); updateSelector(); renderMap(); updateProgress(); document.getElementById('configModal').classList.add('hidden');
+        }
+    }
+
+    /* Tab Switcher */
+    function updateSelector() {
+        const tabs = document.getElementById('tabs');
+        tabs.innerHTML = '';
+        Object.keys(state.fields).forEach(name => {
+            const div = document.createElement('div');
+            div.className = `tab-item ${name === state.currentField ? 'active' : ''}`;
+            div.innerText = name;
+            div.onclick = () => { state.currentField = name; saveState(); updateSelector(); renderMap(); updateProgress(); };
+            tabs.appendChild(div);
+        });
+        // New Field Button
+        const addBtn = document.createElement('div');
+        addBtn.className = 'tab-item text-blue-500';
+        addBtn.innerText = '+';
+        addBtn.onclick = () => {
+            const n = prompt("New Field Name:");
+            if(n && !state.fields[n]) {
+                state.fields[n] = { config: {rows:4, lines:2, plants:5, maxScore:5}, data:{}, systems:{}, meta:{date:'',surveyor:'',crop:''} };
+                state.currentField = n;
+                saveState(); updateSelector(); renderMap(); updateProgress();
+            }
+        };
+        tabs.appendChild(addBtn);
+    }
+    
+    /* Import Logic (修正点: 自動構成) */
+    function importSystemNames(e) {
+        const file = e.target.files[0];
+        if(!file) return;
+        const r = new FileReader();
+        r.onload = (ev) => {
+            const lines = ev.target.result.split(/\r\n|\n/);
+            let count = 0;
+            let maxR=0, maxL=0, maxP=0;
+            
+            lines.forEach(l => {
+                const parts = l.split(',');
+                if(parts.length >= 2) {
+                    const id = parts[0].trim(); // "1-2-3"
+                    const name = parts[1].trim();
+                    if(id && name) {
+                        state.fields[state.currentField].systems[id] = name;
+                        count++;
+                        
+                        // ID解析して最大値を更新
+                        const nums = id.split('-').map(Number);
+                        if(nums.length === 3) {
+                            if(nums[0] > maxR) maxR = nums[0];
+                            if(nums[1] > maxL) maxL = nums[1];
+                            if(nums[2] > maxP) maxP = nums[2];
+                        }
+                    }
+                }
+            });
+            
+            // 構成を自動更新
+            if(count > 0 && maxR > 0) {
+                const c = state.fields[state.currentField].config;
+                c.rows = maxR;
+                c.lines = Math.max(c.lines, maxL); // 現在値より大きければ更新
+                c.plants = Math.max(c.plants, maxP);
+                alert(`Imported ${count} systems.\nMap updated to Rows:${c.rows}, Lines:${c.lines}, Plants:${c.plants}`);
+            }
+
+            saveState();
+            renderMap();
+            e.target.value = '';
+        };
+        r.readAsText(file);
+    }
+
+    /* Export Logic (修正点: フィールドごと・メタデータ追加) */
+    function exportData() {
+        const fn = state.currentField;
+        const f = state.fields[fn];
+        const m = f.meta || {};
+        
+        // メタデータヘッダー
+        let csv = `# Field: ${fn}\n# Date: ${m.date}\n# Surveyor: ${m.surveyor}\n# Crop: ${m.crop}\n# Location: ${m.lat},${m.lon}\n`;
+        csv += "Field,ID,System,Score,Comment,Lat,Lon,Time,HasPhoto\n";
+        
+        for(const id in f.data) {
+            const d = f.data[id];
+            const hasP = d.photo ? 'Yes' : 'No';
+            csv += `${fn},${id},${f.systems[id]||''},${d.score},"${d.comment}",${d.lat||''},${d.lon||''},${d.timestamp||''},${hasP}\n`;
+        }
+        
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), csv], {type:'text/csv'}));
+        a.download = `FieldEval_${fn}_${new Date().toISOString().slice(0,10)}.csv`;
+        a.click();
+    }
+
+    /* Stats, Theme, Speech... (Unchanged logic) */
     function openStats() {
-        const field = state.fields[state.currentField];
+        const f = state.fields[state.currentField];
         const container = document.getElementById('statsContent');
         container.innerHTML = '';
         const systemStats = {};
-        const allSystems = new Set(Object.values(field.systems));
-        
+        const allSystems = new Set(Object.values(f.systems));
         allSystems.forEach(sys => {
             if(!sys) return;
             systemStats[sys] = { counts: {}, total: 0, sum: 0 };
-            for(let i=1; i<=field.config.maxScore; i++) systemStats[sys].counts[i] = 0;
-            systemStats[sys].counts['N/A'] = 0;
-            systemStats[sys].counts['Miss'] = 0;
+            for(let i=1; i<=f.config.maxScore; i++) systemStats[sys].counts[i] = 0;
+            systemStats[sys].counts['N/A'] = 0; systemStats[sys].counts['Miss'] = 0;
         });
-
-        for(const id in field.data) {
-            const sys = field.systems[id];
-            const score = field.data[id].score;
+        for(const id in f.data) {
+            const sys = f.systems[id];
+            const score = f.data[id].score;
             if(sys && systemStats[sys]) {
                 if(score === '評価不能') systemStats[sys].counts['N/A']++;
                 else if(score === '欠株') systemStats[sys].counts['Miss']++;
@@ -582,135 +712,37 @@
                     if(!isNaN(num)) {
                         const key = Math.round(num);
                         if(systemStats[sys].counts[key] !== undefined) systemStats[sys].counts[key]++;
-                        systemStats[sys].total++;
-                        systemStats[sys].sum += num;
+                        systemStats[sys].total++; systemStats[sys].sum += num;
                     }
                 }
             }
         }
-
-        if(Object.keys(systemStats).length === 0) {
-            container.innerHTML = '<div class="text-center text-gray-500 py-10">No data.</div>';
-        } else {
+        if(Object.keys(systemStats).length === 0) container.innerHTML = '<div class="text-center text-gray-500 py-10">No data.</div>';
+        else {
             Object.keys(systemStats).sort().forEach(sys => {
                 const stat = systemStats[sys];
                 const avg = stat.total > 0 ? (stat.sum / stat.total).toFixed(1) : '-';
                 let barsHtml = '';
-                let maxCount = 0;
-                Object.values(stat.counts).forEach(c => { if(c > maxCount) maxCount = c; });
-
-                for(let i=1; i<=field.config.maxScore; i++) {
+                let maxCount = 0; Object.values(stat.counts).forEach(c => maxCount = Math.max(maxCount, c));
+                for(let i=1; i<=f.config.maxScore; i++) {
                     const count = stat.counts[i] || 0;
                     const height = maxCount > 0 ? (count / maxCount) * 100 : 0;
                     barsHtml += `<div class="flex flex-col items-center flex-1"><div class="bar-container w-full items-end justify-center"><div class="bar w-full" style="height: ${height}%" data-count="${count}"></div></div><span class="text-[9px] mt-1 font-bold text-gray-400">${i}</span></div>`;
                 }
-                const color = getSystemColor(sys);
-                container.innerHTML += `<div class="bg-gray-50 dark:bg-black/20 p-4 rounded-xl"><div class="flex justify-between items-baseline mb-2"><h4 class="font-bold text-lg" style="color:${color}">${sys}</h4><span class="text-xs font-bold text-gray-500">Avg: ${avg} (n=${stat.total})</span></div><div class="flex gap-2 h-16 items-end px-2">${barsHtml}</div></div>`;
+                container.innerHTML += `<div class="bg-gray-50 dark:bg-black/20 p-4 rounded-xl"><div class="flex justify-between items-baseline mb-2"><h4 class="font-bold text-lg" style="color:${getSystemColor(sys)}">${sys}</h4><span class="text-xs font-bold text-gray-500">Avg: ${avg} (n=${stat.total})</span></div><div class="flex gap-2 h-16 items-end px-2">${barsHtml}</div></div>`;
             });
         }
         document.getElementById('statsModal').classList.remove('hidden');
     }
-
-    function openConfig() {
-        const cfg = state.fields[state.currentField].config;
-        ['rows','lines','plants','maxScore'].forEach(k => document.getElementById(`cfg_${k}`).value = cfg[k]);
-        document.getElementById('configModal').classList.remove('hidden');
-    }
-    function saveFieldConfig() {
-        state.gpsEnabled = document.getElementById('cfg_useGPS').checked;
+    function toggleTheme() { state.theme = state.theme === 'light' ? 'dark' : 'light'; applyTheme(state.theme); saveState(); renderMap(); }
+    function applyTheme(t) { if(t === 'dark') document.documentElement.classList.add('dark'); else document.documentElement.classList.remove('dark'); }
+    function updateProgress() {
         const f = state.fields[state.currentField];
-        ['rows','lines','plants','maxScore'].forEach(k => f.config[k] = parseFloat(document.getElementById(`cfg_${k}`).value));
-        saveState();
-        document.getElementById('configModal').classList.add('hidden');
-        renderMap();
-    }
-    
-    function resetFieldData() {
-        if(confirm(`⚠️ WARNING: Are you sure you want to clear ALL scores/photos for "${state.currentField}"?\nSystem names will remain.\n\n本当に「${state.currentField}」の全データを消去しますか？\n（系統名は残ります）`)) {
-            state.fields[state.currentField].data = {};
-            saveState();
-            renderMap();
-            updateProgress();
-            document.getElementById('configModal').classList.add('hidden');
-            alert("Data cleared.");
-        }
-    }
-
-    function deleteCurrentField() {
-        const fieldName = state.currentField;
-        if(Object.keys(state.fields).length <= 1) {
-            alert("This is the only field available. Cannot delete.");
-            return;
-        }
-        if(confirm(`Are you sure you want to delete "${fieldName}"?\nThis cannot be undone.`)) {
-            delete state.fields[fieldName];
-            state.currentField = Object.keys(state.fields)[0];
-            saveState();
-            updateSelector();
-            renderMap();
-            updateProgress();
-            document.getElementById('configModal').classList.add('hidden');
-        }
-    }
-
-    function switchField() {
-        const v = document.getElementById('fieldSelector').value;
-        if(v === '__NEW__') {
-            const n = prompt("New Field Name:");
-            if(n && !state.fields[n]) {
-                state.fields[n] = { config: {rows:4, lines:2, plants:5, maxScore:5}, data:{}, systems:{} };
-                state.currentField = n;
-            }
-        } else state.currentField = v;
-        updateSelector(); saveState(); renderMap(); updateProgress();
-    }
-    function updateSelector() {
-        const s = document.getElementById('fieldSelector');
-        s.innerHTML = '';
-        Object.keys(state.fields).forEach(n => s.innerHTML += `<option value="${n}" ${n===state.currentField?'selected':''}>${n}</option>`);
-        s.innerHTML += `<option value="__NEW__">+ NEW FIELD</option>`;
-    }
-    
-    function importSystemNames(e) {
-        const file = e.target.files[0];
-        if(!file) return;
-        const r = new FileReader();
-        r.onload = (ev) => {
-            const lines = ev.target.result.split(/\r\n|\n/);
-            let count = 0;
-            lines.forEach(l => {
-                const parts = l.split(',');
-                if(parts.length >= 2) {
-                    const id = parts[0].trim();
-                    const name = parts[1].trim();
-                    if(id && name) {
-                        state.fields[state.currentField].systems[id] = name;
-                        count++;
-                    }
-                }
-            });
-            saveState();
-            renderMap();
-            alert(`${count} imported.`);
-            e.target.value = '';
-        };
-        r.readAsText(file);
-    }
-
-    function exportData() {
-        let csv = "Field,ID,System,Score,Comment,Lat,Lon,Time,HasPhoto\n";
-        Object.keys(state.fields).forEach(fn => {
-            const f = state.fields[fn];
-            for(const id in f.data) {
-                const d = f.data[id];
-                const hasP = d.photo ? 'Yes' : 'No';
-                csv += `${fn},${id},${f.systems[id]||''},${d.score},"${d.comment}",${d.lat||''},${d.lon||''},${d.timestamp||''},${hasP}\n`;
-            }
-        });
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), csv], {type:'text/csv'}));
-        a.download = `FieldEval_v3.4_${new Date().toISOString().slice(0,10)}.csv`;
-        a.click();
+        const total = f.config.rows * f.config.lines * f.config.plants;
+        const done = Object.keys(f.data).length;
+        const pct = Math.round((done / total) * 100);
+        document.getElementById('progressBar').style.width = `${pct}%`;
+        document.getElementById('progressText').innerText = `${pct}% DONE`;
     }
 </script>
 </body>
