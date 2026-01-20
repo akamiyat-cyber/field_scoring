@@ -455,7 +455,8 @@
         // Commands
         if (text.match(/次|つぎ|保存|OK|オッケー|はい/i)) { saveAndMove(1); return; }
         if (text.match(/戻|もど|前|バック/)) { moveWithoutSave(-1); return; }
-        if (text.match(/リセット|なし|クリア/)) { clickRadio('RESET'); saveAndMove(1); return; }
+        if (text.match(/リセット|RESET/i)) { clickRadio('RESET'); saveAndMove(1); return; }
+        if (text.match(/未評価|なし|クリア/)) { clickRadio('未評価'); saveAndMove(1); return; }
         if (text.match(/欠|けっかぶ|ダメ|バツ/)) { clickRadio('欠株'); saveAndMove(1); return; }
         if (text.match(/不能|見え|不明/)) { clickRadio('評価不能'); saveAndMove(1); return; }
 
@@ -545,7 +546,7 @@
                         <span class="absolute top-1 left-2 text-lg font-black opacity-80 text-black">#${p}</span>
                         ${hasPhoto ? '<span class="absolute top-1 right-1 text-xs">📷</span>' : ''}
                         <div class="w-full text-center px-1 text-[18px] font-black leading-tight mt-3 break-words overflow-hidden max-h-[50px]" style="color:${sysColor}">${sys}</div>
-                        <span class="text-2xl font-black leading-none mt-1 text-gray-800 dark:text-gray-100">${val === '評価不能' ? 'N/A' : (val === '欠株' ? '×' : (val ?? ''))}</span>
+                        <span class="text-2xl font-black leading-none mt-1 text-gray-800 dark:text-gray-100">${val === '評価不能' || val === '未評価' ? 'N/A' : (val === '欠株' ? '×' : (val ?? ''))}</span>
                     `;
                     div.onclick = () => openScoring(id);
                     col.appendChild(div);
@@ -557,7 +558,7 @@
     }
 
     function getHeatmapColor(val, max) {
-        if (val === '評価不能') return state.theme==='dark' ? '#374151' : '#f3f4f6';
+        if (val === '評価不能' || val === '未評価') return state.theme==='dark' ? '#374151' : '#f3f4f6';
         if (val === '欠株') return state.theme==='dark' ? '#7f1d1d' : '#fee2e2';
         if (!val) return '';
         const r = parseFloat(val) / max;
@@ -606,8 +607,8 @@
         for (let s = 0; s <= f.config.maxScore; s += 0.5) {
              grid.innerHTML += `<div><input type="radio" name="score" id="s${s}" value="${s}" class="score-input hidden" ${d.score==s?'checked':''}><label for="s${s}" class="score-btn cursor-pointer">${s}</label></div>`;
         }
-        ['RESET', '欠株', '評価不能'].forEach((opt, i) => {
-            const label = opt === 'RESET' ? 'RESET<br>(未評価)' : opt;
+        ['評価不能', '未評価', '欠株', 'RESET'].forEach((opt, i) => {
+            const label = opt === 'RESET' ? 'RESET<br>(削除)' : opt;
             const cls = opt === 'RESET' ? 'reset-btn' : 'special-btn';
             grid.innerHTML += `<div class="col-span-1"><input type="radio" name="score" id="sp_${i}" value="${opt}" class="score-input hidden" ${d.score===opt?'checked':''}><label for="sp_${i}" class="score-btn ${cls} cursor-pointer text-xs">${label}</label></div>`;
         });
@@ -924,7 +925,7 @@
         for(const id in f.data) {
             const sys = f.systems[id]; const score = f.data[id].score;
             if(sys && systemStats[sys]) {
-                if(score === '評価不能') systemStats[sys].counts['N/A']++;
+                if(score === '評価不能' || score === '未評価') systemStats[sys].counts['N/A']++;
                 else if(score === '欠株') systemStats[sys].counts['Miss']++;
                 else {
                     const num = parseFloat(score);
