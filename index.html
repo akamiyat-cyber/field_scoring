@@ -7,9 +7,10 @@
     <meta name="theme-color" content="#0f172a">
     <link rel="apple-touch-icon" href="icon.png">
     
-    <title>FieldEval Pro v5.0 (PWA)</title>
+    <title>FieldEval Pro v5.2 (Voice Input)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
     <script>
         tailwind.config = {
@@ -111,7 +112,25 @@
             background: #1e293b; color: #60a5fa; border-bottom: 2px solid #60a5fa;
         }
         
-        /* Loading Overlay */
+        .gallery-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+            gap: 10px;
+        }
+        .gallery-item {
+            aspect-ratio: 1; position: relative; border-radius: 8px; overflow: hidden; border: 1px solid #e2e8f0; cursor: pointer;
+        }
+        .gallery-item img { width: 100%; height: 100%; object-fit: cover; }
+        .gallery-caption {
+            position: absolute; bottom: 0; left: 0; right: 0;
+            background: rgba(0,0,0,0.6); color: white;
+            font-size: 0.7rem; padding: 4px; text-align: center; font-weight: bold;
+        }
+
+        /* Voice Animation */
+        .mic-listening { animation: pulse-red 1.5s infinite; background-color: #fee2e2 !important; color: #dc2626 !important; border-color: #dc2626 !important; }
+        @keyframes pulse-red { 0% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(220, 38, 38, 0); } 100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); } }
+
         #dbLoader { position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 9999; display: flex; justify-content: center; items-center; color: white; font-weight: bold; flex-direction: column; gap: 10px; }
         #dbLoader.hidden { display: none; }
     </style>
@@ -124,7 +143,7 @@
 </div>
 
 <div class="bg-white dark:bg-dark-surface py-2 text-center border-b dark:border-dark-border z-50 shadow-sm shrink-0">
-    <h1 class="text-xl font-black tracking-tight text-slate-900 dark:text-white">FieldEval <span class="text-blue-600">Pro</span> <span class="text-[10px] text-gray-400 font-normal">v5.0</span></h1>
+    <h1 class="text-xl font-black tracking-tight text-slate-900 dark:text-white">FieldEval <span class="text-blue-600">Pro</span> <span class="text-[10px] text-gray-400 font-normal">v5.2</span></h1>
 </div>
 
 <div class="bg-white/90 dark:bg-dark-bg/95 backdrop-blur border-b border-gray-200 dark:border-dark-border z-40 shrink-0">
@@ -138,15 +157,14 @@
 
         <div class="flex items-center gap-2">
             <input type="range" min="0.5" max="2.0" step="0.1" value="1.0" id="zoomSlider" oninput="manualZoom(this.value)" class="w-20 accent-blue-600 hidden sm:block">
+            <button onclick="openGallery()" class="p-2 rounded-lg bg-gray-100 dark:bg-dark-surface font-bold text-xs flex items-center gap-1 whitespace-nowrap text-purple-600 dark:text-purple-400"><span>🖼️</span> Gallery</button>
             <button onclick="openStats()" class="p-2 rounded-lg bg-gray-100 dark:bg-dark-surface font-bold text-xs flex items-center gap-1 whitespace-nowrap"><span>📊</span> Stats</button>
             <button onclick="toggleTheme()" class="p-2 rounded-full bg-gray-100 dark:bg-dark-surface">🌗</button>
             <button onclick="openConfig()" class="p-2 rounded-lg bg-gray-100 dark:bg-dark-surface font-bold text-xs">⚙️</button>
-            
             <label class="p-2 rounded-lg bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 font-bold text-xs cursor-pointer flex items-center gap-1 hover:opacity-80 transition-opacity">
                 <span>📥</span> Field Map Import
                 <input type="file" accept=".csv,.txt" class="hidden" onchange="importSystemNames(event)">
             </label>
-
             <button onclick="openShareMenu()" class="p-2 rounded-lg bg-blue-600 text-white font-bold text-xs shadow-lg flex items-center gap-1">
                 <span>📤</span> Share
             </button>
@@ -159,18 +177,19 @@
 </div>
 
 <footer class="bg-gray-200 dark:bg-black py-2 text-center text-[10px] text-gray-500 dark:text-gray-600 font-bold shrink-0 z-50">
-    FieldEval Pro v5.0 (PWA/IndexedDB)
+    FieldEval Pro v5.2 (PWA/Voice Input)
 </footer>
 
 <div id="shareModal" class="hidden fixed inset-0 bg-black/80 z-[90] flex items-center justify-center p-4 backdrop-blur-sm">
     <div class="bg-white dark:bg-dark-surface p-6 rounded-2xl w-full max-w-sm shadow-2xl text-center transform transition-all">
         <h3 class="font-black text-xl mb-4 text-slate-900 dark:text-white">📤 Export & Share</h3>
         <p class="text-xs text-gray-500 mb-6 font-bold">Choose a format to share or save.</p>
-        
         <div class="space-y-3">
             <button onclick="shareCSV()" class="w-full bg-green-500 hover:bg-green-600 text-white py-3 rounded-xl font-bold flex items-center justify-center gap-3 transition-colors shadow-lg">
-                <span class="text-xl">📊</span>
-                <div class="text-left"><div class="text-sm leading-none">Excel / CSV</div><div class="text-[10px] opacity-80 font-normal">Current Field Data</div></div>
+                <span class="text-xl">📊</span><div class="text-left"><div class="text-sm leading-none">Excel / CSV</div><div class="text-[10px] opacity-80 font-normal">Current Field Data</div></div>
+            </button>
+            <button onclick="exportPhotoZip()" class="w-full bg-orange-500 hover:bg-orange-600 text-white py-3 rounded-xl font-bold flex items-center justify-center gap-3 transition-colors shadow-lg">
+                <span class="text-xl">📷</span><div class="text-left"><div class="text-sm leading-none">Photos (ZIP)</div><div class="text-[10px] opacity-80 font-normal">Images & List CSV</div></div>
             </button>
             <div class="grid grid-cols-2 gap-3">
                 <button onclick="backupData('current')" class="bg-blue-500 hover:bg-blue-600 text-white py-3 rounded-xl font-bold flex flex-col items-center justify-center gap-1 transition-colors shadow-lg">
@@ -181,11 +200,20 @@
                 </button>
             </div>
             <button onclick="exportMapImage()" class="w-full bg-indigo-500 hover:bg-indigo-600 text-white py-3 rounded-xl font-bold flex items-center justify-center gap-3 transition-colors shadow-lg">
-                <span class="text-xl">🖼️</span>
-                <div class="text-left"><div class="text-sm leading-none">Map Image</div><div class="text-[10px] opacity-80 font-normal">Save as PNG</div></div>
+                <span class="text-xl">🖼️</span><div class="text-left"><div class="text-sm leading-none">Map Image</div><div class="text-[10px] opacity-80 font-normal">Save as PNG</div></div>
             </button>
         </div>
         <button onclick="document.getElementById('shareModal').classList.add('hidden')" class="mt-6 py-2 px-6 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-400 font-bold text-xs hover:bg-gray-200">Cancel</button>
+    </div>
+</div>
+
+<div id="galleryModal" class="hidden fixed inset-0 bg-black/80 z-[75] flex flex-col p-4 backdrop-blur-sm">
+    <div class="bg-white dark:bg-dark-surface rounded-2xl shadow-2xl flex-1 max-w-4xl mx-auto w-full flex flex-col overflow-hidden">
+        <div class="p-4 border-b dark:border-dark-border flex justify-between items-center bg-gray-50 dark:bg-gray-900">
+            <h3 class="font-black text-xl">🖼️ Photo Gallery</h3>
+            <button onclick="document.getElementById('galleryModal').classList.add('hidden')" class="text-2xl font-bold text-gray-400">×</button>
+        </div>
+        <div id="galleryContent" class="flex-1 overflow-y-auto p-4 gallery-grid content-start bg-gray-100 dark:bg-black/40"></div>
     </div>
 </div>
 
@@ -257,8 +285,12 @@
                     <input type="color" id="currentSystemColor" class="w-8 h-8 rounded cursor-pointer border-0 p-0" title="Change Color">
                 </div>
             </div>
+            <button id="micBtn" onclick="toggleVoice()" class="w-12 h-12 shrink-0 rounded-full bg-gray-100 dark:bg-gray-800 border-2 border-transparent flex items-center justify-center font-bold text-2xl mr-2 transition-all">🎤</button>
             <button onclick="closeModal()" class="w-10 h-10 shrink-0 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center font-bold text-xl">×</button>
         </div>
+        
+        <div id="voiceFeedback" class="h-6 text-center text-xs font-bold text-blue-500 dark:text-blue-400 mb-1 opacity-0 transition-opacity">Listening...</div>
+
         <div id="compareInfo" class="hidden mb-4 bg-purple-50 dark:bg-purple-900/20 p-3 rounded-xl border border-purple-100 dark:border-purple-800 flex items-start gap-3">
             <div class="text-xl">📊</div>
             <div class="flex-1">
@@ -270,16 +302,12 @@
         <div class="relative mb-6 flex gap-2 items-start">
             <textarea id="comment" class="flex-1 p-4 bg-gray-100 dark:bg-black/30 rounded-2xl h-20 text-sm font-bold resize-none outline-none focus:ring-2 ring-blue-500" placeholder="Comment..."></textarea>
             <div class="flex flex-col gap-1">
-                <label class="w-12 h-9 rounded-lg flex items-center justify-center text-gray-400 bg-gray-100 dark:bg-black/30 hover:text-blue-500 cursor-pointer text-lg" title="カメラを起動">
-                  📷
-                  <input type="file" id="photoInputCam" accept="image/*" capture="environment" class="hidden" onchange="handlePhotoSelect(event)">
+                <label class="w-12 h-9 rounded-lg flex items-center justify-center text-gray-400 bg-gray-100 dark:bg-black/30 hover:text-blue-500 cursor-pointer text-lg" title="Camera">
+                  📷<input type="file" id="photoInputCam" accept="image/*" capture="environment" class="hidden" onchange="handlePhotoSelect(event)">
              </label>
-
-             <label class="w-12 h-9 rounded-lg flex items-center justify-center text-gray-400 bg-gray-100 dark:bg-black/30 hover:text-green-500 cursor-pointer text-lg" title="アルバムから選択">
-                   📂
-                    <input type="file" id="photoInputFile" accept="image/*" class="hidden" onchange="handlePhotoSelect(event)">
+             <label class="w-12 h-9 rounded-lg flex items-center justify-center text-gray-400 bg-gray-100 dark:bg-black/30 hover:text-green-500 cursor-pointer text-lg" title="File">
+                   📂<input type="file" id="photoInputFile" accept="image/*" class="hidden" onchange="handlePhotoSelect(event)">
                 </label>
-
                 <button id="deletePhotoBtn" onclick="removePhoto()" class="hidden w-12 h-8 rounded-lg items-center justify-center text-red-500 bg-red-100 hover:bg-red-200 text-xs font-bold">DEL</button>
             </div>
             <img id="photoPreview" class="photo-thumb absolute right-16 top-0 bg-white" alt="preview">
@@ -304,14 +332,10 @@
                 const _db = e.target.result;
                 if (!_db.objectStoreNames.contains('state')) _db.createObjectStore('state');
             };
-            req.onsuccess = (e) => {
-                db = e.target.result;
-                resolve(db);
-            };
+            req.onsuccess = (e) => { db = e.target.result; resolve(db); };
             req.onerror = (e) => reject(e);
         });
     }
-
     function dbGet(store, key) {
         return new Promise((resolve, reject) => {
             const tx = db.transaction([store], 'readonly');
@@ -320,7 +344,6 @@
             req.onerror = () => reject(req.error);
         });
     }
-
     function dbPut(store, key, value) {
         return new Promise((resolve, reject) => {
             const tx = db.transaction([store], 'readwrite');
@@ -330,81 +353,139 @@
         });
     }
 
-    // --- Service Worker Registration ---
     if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-            navigator.serviceWorker.register('./sw.js')
-                .then(reg => console.log('SW registered'))
-                .catch(err => console.log('SW fail', err));
-        });
+        window.addEventListener('load', () => { navigator.serviceWorker.register('./sw.js').catch(err => console.log('SW fail', err)); });
     }
 
     // --- App Logic ---
     let state = {
-        currentField: 'Field 1',
-        gpsEnabled: false,
-        theme: 'light',
-        systemColors: {},
-        compareTarget: null,
-        fields: {
-            'Field 1': { config: {rows:4, lines:2, plants:5, maxScore:5}, data: {}, systems: {}, meta: { date: '', surveyor: '', crop: '', lat: null, lon: null } }
-        }
+        currentField: 'Field 1', gpsEnabled: false, theme: 'light', systemColors: {}, compareTarget: null,
+        fields: { 'Field 1': { config: {rows:4, lines:2, plants:5, maxScore:5}, data: {}, systems: {}, meta: { date: '', surveyor: '', crop: '', lat: null, lon: null } } }
     };
-
     let currentScale = 1;
     let tempPhotoData = null;
+    let recognition = null;
+    let isListening = false;
 
     window.onload = async () => {
         try {
             await initDB();
-            // Load from IDB
             const savedState = await dbGet('state', 'latest');
-            if (savedState) {
-                state = savedState;
-            } else {
-                // Migration: Check LocalStorage
+            if (savedState) state = savedState;
+            else {
                 const local = localStorage.getItem('field_eval_v4');
-                if (local) {
-                    try {
-                        state = JSON.parse(local);
-                        await dbPut('state', 'latest', state); // Save to IDB
-                        alert("Data migrated to new database system!");
-                    } catch(e) { console.error("Migration failed", e); }
-                }
+                if (local) { state = JSON.parse(local); await dbPut('state', 'latest', state); }
             }
-        } catch(e) {
-            console.error("DB Error", e);
-            alert("Database Error. App may not work correctly.");
-        } finally {
-            document.getElementById('dbLoader').classList.add('hidden');
-        }
+        } catch(e) { console.error("DB Error", e); } 
+        finally { document.getElementById('dbLoader').classList.add('hidden'); }
         
-        // Migration Check
         if(!state.fields[state.currentField].meta) {
-            Object.keys(state.fields).forEach(k => {
-                if(!state.fields[k].meta) state.fields[k].meta = { date: '', surveyor: '', crop: '', lat: null, lon: null };
-            });
+            Object.keys(state.fields).forEach(k => { if(!state.fields[k].meta) state.fields[k].meta = { date: '', surveyor: '', crop: '', lat: null, lon: null }; });
         }
-
-        applyTheme(state.theme);
-        updateSelector();
-        renderMap();
-        updateProgress();
-        initZoom();
+        applyTheme(state.theme); updateSelector(); renderMap(); updateProgress(); initZoom(); initVoice();
     };
 
     async function saveState() {
-        // Save to IDB (Async)
-        try {
-            await dbPut('state', 'latest', state);
-            updateProgress();
-        } catch(e) {
-            console.error("Save failed", e);
-            alert("Error saving data!");
+        try { await dbPut('state', 'latest', state); updateProgress(); } catch(e) { console.error("Save failed", e); }
+    }
+
+    // --- Voice Recognition Logic ---
+    function initVoice() {
+        if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+            document.getElementById('micBtn').style.display = 'none';
+            return;
+        }
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        recognition = new SpeechRecognition();
+        recognition.lang = 'ja-JP';
+        recognition.continuous = true;
+        recognition.interimResults = false;
+
+        recognition.onstart = () => {
+            isListening = true;
+            const btn = document.getElementById('micBtn');
+            btn.classList.add('mic-listening');
+            showFeedback("Listening...");
+        };
+        recognition.onend = () => {
+            if(isListening && !document.getElementById('inputModal').classList.contains('hidden')) {
+                recognition.start(); // Auto-restart if modal open
+            } else {
+                isListening = false;
+                document.getElementById('micBtn').classList.remove('mic-listening');
+                showFeedback("");
+            }
+        };
+        recognition.onresult = (event) => {
+            const last = event.results.length - 1;
+            const transcript = event.results[last][0].transcript.trim();
+            showFeedback(`Heard: "${transcript}"`);
+            processVoiceCommand(transcript);
+        };
+        recognition.onerror = (e) => {
+            console.error(e.error);
+            showFeedback("Error");
+            isListening = false;
+            document.getElementById('micBtn').classList.remove('mic-listening');
+        };
+    }
+
+    function toggleVoice() {
+        if (!recognition) return;
+        if (isListening) {
+            isListening = false;
+            recognition.stop();
+        } else {
+            recognition.start();
         }
     }
 
-    /* Zoom Logic */
+    function showFeedback(msg) {
+        const el = document.getElementById('voiceFeedback');
+        el.innerText = msg;
+        el.style.opacity = msg ? 1 : 0;
+    }
+
+    function processVoiceCommand(cmd) {
+        // Normalize
+        let text = cmd.replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 0xFEE0))
+                      .replace('一', '1').replace('二', '2').replace('三', '3').replace('四', '4').replace('五', '5')
+                      .replace('点', '.').replace('半', '.5');
+
+        // Commands
+        if (text.match(/次|つぎ|保存|OK|オッケー|はい/i)) { saveAndMove(1); return; }
+        if (text.match(/戻|もど|前|バック/)) { moveWithoutSave(-1); return; }
+        if (text.match(/リセット|なし|クリア/)) { clickRadio('RESET'); saveAndMove(1); return; }
+        if (text.match(/欠|けっかぶ|ダメ|バツ/)) { clickRadio('欠株'); saveAndMove(1); return; }
+        if (text.match(/不能|見え|不明/)) { clickRadio('評価不能'); saveAndMove(1); return; }
+
+        // Number extraction (Integers and Decimals)
+        const match = text.match(/(\d+(\.\d+)?)/);
+        if (match) {
+            const val = parseFloat(match[0]);
+            clickRadio(val);
+        }
+    }
+
+    function clickRadio(val) {
+        // Try exact match
+        let radio = document.querySelector(`input[name="score"][value="${val}"]`);
+        // If not found, try finding integer match if val is integer (e.g. "1.0" -> "1")
+        if (!radio && val % 1 === 0) {
+            radio = document.querySelector(`input[name="score"][value="${parseInt(val)}"]`);
+        }
+        if (radio) {
+            radio.checked = true;
+            // Visual feedback
+            const label = document.querySelector(`label[for="${radio.id}"]`);
+            if(label) {
+                label.style.transform = "scale(1.2)";
+                setTimeout(() => label.style.transform = "scale(1)", 200);
+            }
+        }
+    }
+
+    // --- Standard Logic ---
     function initZoom() {
         const container = document.getElementById('mapContainer');
         let initialDistance = 0; let initialScale = 1;
@@ -426,7 +507,6 @@
     }
     function manualZoom(val) { setZoom(parseFloat(val)); }
 
-    /* Helper */
     function getSystemColor(name) {
         if(!name) return 'black';
         if(state.systemColors && state.systemColors[name]) return state.systemColors[name];
@@ -437,13 +517,11 @@
     }
     function rgbToHex(color) { return color.startsWith('#') ? color : '#000000'; }
 
-    /* Map Rendering */
     function renderMap() {
         const field = state.fields[state.currentField];
         const { rows, lines, plants, maxScore } = field.config;
         const container = document.getElementById('fieldMap');
         container.innerHTML = '';
-
         for (let r = 1; r <= rows; r++) {
             const uneBlock = document.createElement('div');
             uneBlock.className = 'une-block';
@@ -458,22 +536,16 @@
                     const sys = field.systems[id] || '';
                     const val = d ? d.score : null;
                     const hasPhoto = d && d.photo;
-                    
                     const div = document.createElement('div');
                     div.id = `cell-${id}`;
                     div.className = 'plant-cell relative overflow-hidden group cursor-pointer';
-                    if (val !== null && val !== 'RESET') {
-                        div.style.backgroundColor = getHeatmapColor(val, maxScore);
-                    }
+                    if (val !== null && val !== 'RESET') div.style.backgroundColor = getHeatmapColor(val, maxScore);
                     const sysColor = state.theme === 'dark' && !state.systemColors[sys] ? '#cbd5e1' : getSystemColor(sys);
-
                     div.innerHTML = `
                         <span class="absolute top-1 left-2 text-lg font-black opacity-80 text-black">#${p}</span>
                         ${hasPhoto ? '<span class="absolute top-1 right-1 text-xs">📷</span>' : ''}
                         <div class="w-full text-center px-1 text-[18px] font-black leading-tight mt-3 break-words overflow-hidden max-h-[50px]" style="color:${sysColor}">${sys}</div>
-                        <span class="text-2xl font-black leading-none mt-1 text-gray-800 dark:text-gray-100">
-                            ${val === '評価不能' ? 'N/A' : (val === '欠株' ? '×' : (val ?? ''))}
-                        </span>
+                        <span class="text-2xl font-black leading-none mt-1 text-gray-800 dark:text-gray-100">${val === '評価不能' ? 'N/A' : (val === '欠株' ? '×' : (val ?? ''))}</span>
                     `;
                     div.onclick = () => openScoring(id);
                     col.appendChild(div);
@@ -493,7 +565,6 @@
         return `hsl(142, 70%, ${l}%)`;
     }
 
-    /* Scoring Modal */
     function openScoring(id) {
         if(window.currentId) document.getElementById(`cell-${window.currentId}`)?.classList.remove('selected');
         window.currentId = id;
@@ -509,35 +580,33 @@
         document.getElementById('currentSystemColor').value = rgbToHex(getSystemColor(sysName));
         document.getElementById('comment').value = d.comment || '';
         
+        // Voice: Restart recognition if it was active
+        if(isListening && recognition) {
+             recognition.stop(); // restart to clear buffer
+             // onend will trigger restart
+        }
+
         const compDiv = document.getElementById('compareInfo');
         if (state.compareTarget && state.fields[state.compareTarget]) {
             const compF = state.fields[state.compareTarget];
             const compD = compF.data[id];
-            
             if (compD) {
                 compDiv.classList.remove('hidden');
                 document.getElementById('compareScore').innerText = compD.score;
                 document.getElementById('compareComment').innerText = compD.comment || '';
                 document.getElementById('compareDate').innerText = `${state.compareTarget} (${compF.meta.date || 'No Date'})`;
-            } else {
-                compDiv.classList.add('hidden'); 
-            }
-        } else {
-            compDiv.classList.add('hidden');
-        }
+            } else compDiv.classList.add('hidden'); 
+        } else compDiv.classList.add('hidden');
 
         tempPhotoData = d.photo || null;
         updatePhotoPreview();
 
         const grid = document.getElementById('scoreGrid');
         grid.innerHTML = '';
-        
         for (let s = 0; s <= f.config.maxScore; s += 0.5) {
              grid.innerHTML += `<div><input type="radio" name="score" id="s${s}" value="${s}" class="score-input hidden" ${d.score==s?'checked':''}><label for="s${s}" class="score-btn cursor-pointer">${s}</label></div>`;
         }
-        
-        const specials = ['RESET', '欠株', '評価不能'];
-        specials.forEach((opt, i) => {
+        ['RESET', '欠株', '評価不能'].forEach((opt, i) => {
             const label = opt === 'RESET' ? 'RESET<br>(未評価)' : opt;
             const cls = opt === 'RESET' ? 'reset-btn' : 'special-btn';
             grid.innerHTML += `<div class="col-span-1"><input type="radio" name="score" id="sp_${i}" value="${opt}" class="score-input hidden" ${d.score===opt?'checked':''}><label for="sp_${i}" class="score-btn ${cls} cursor-pointer text-xs">${label}</label></div>`;
@@ -552,57 +621,34 @@
             const img = new Image();
             img.onload = function() {
                 const c = document.createElement('canvas');
-                const scale = 600 / img.width;
-                c.width = 600; c.height = img.height * scale;
+                const scale = 1600 / img.width;
+                c.width = 1600; c.height = img.height * scale;
                 c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
-                tempPhotoData = c.toDataURL('image/jpeg', 0.7);
+                tempPhotoData = c.toDataURL('image/jpeg', 0.95);
                 updatePhotoPreview();
             };
             img.src = ev.target.result;
         };
         r.readAsDataURL(file);
     }
-    
     function removePhoto() { 
         if(confirm('Delete photo?')) { 
             tempPhotoData = null; 
-            
-            // カメラ用・アルバム用どちらの入力欄もクリアする（エラー回避のため存在確認付き）
-            const camInput = document.getElementById('photoInputCam');
-            if (camInput) camInput.value = '';
-            
-            const fileInput = document.getElementById('photoInputFile');
-            if (fileInput) fileInput.value = '';
-
-            // （念のため古いIDが残っていてもエラーにならないようにケア）
-            const oldInput = document.getElementById('photoInput');
-            if (oldInput) oldInput.value = '';
-
+            if(document.getElementById('photoInputCam')) document.getElementById('photoInputCam').value = '';
+            if(document.getElementById('photoInputFile')) document.getElementById('photoInputFile').value = '';
             updatePhotoPreview(); 
         } 
     }
-    
-    // 写真のプレビュー表示を更新する関数（これが不足していました）
     function updatePhotoPreview() {
         const img = document.getElementById('photoPreview');
         const btn = document.getElementById('deletePhotoBtn');
-        if (tempPhotoData) {
-            img.src = tempPhotoData;
-            img.classList.add('active');
-            btn.classList.remove('hidden');
-            btn.classList.add('flex'); // DELボタンを表示
-        } else {
-            img.src = '';
-            img.classList.remove('active');
-            btn.classList.add('hidden');
-            btn.classList.remove('flex'); // DELボタンを非表示
-        }
+        if (tempPhotoData) { img.src = tempPhotoData; img.classList.add('active'); btn.classList.remove('hidden'); btn.classList.add('flex'); }
+        else { img.src = ''; img.classList.remove('active'); btn.classList.add('hidden'); btn.classList.remove('flex'); }
     }
 
     async function saveAndMove(dir) {
         const input = document.querySelector('input[name="score"]:checked');
         if(!input) { alert("Please select a score or RESET."); return; }
-
         const newSys = document.getElementById('currentSystemInput').value;
         const newCol = document.getElementById('currentSystemColor').value;
         state.fields[state.currentField].systems[window.currentId] = newSys;
@@ -612,7 +658,6 @@
             delete state.fields[state.currentField].data[window.currentId];
             await saveState(); renderMap(); commit(null, dir, false); return;
         }
-
         const d = { score: input.value, comment: document.getElementById('comment').value, photo: tempPhotoData, timestamp: new Date().toISOString() };
         if (state.gpsEnabled && navigator.geolocation) {
              navigator.geolocation.getCurrentPosition(
@@ -638,157 +683,97 @@
         document.getElementById('inputModal').classList.add('hidden');
         if(window.currentId) document.getElementById(`cell-${window.currentId}`)?.classList.remove('selected');
         window.currentId = null;
+        if(isListening) { isListening=false; recognition.stop(); }
     }
 
-    /* Configuration & Metadata */
     function openConfig() {
         const f = state.fields[state.currentField];
-        const c = f.config;
-        const m = f.meta || {};
+        const c = f.config; const m = f.meta || {};
         ['rows','lines','plants','maxScore'].forEach(k => document.getElementById(`cfg_${k}`).value = c[k]);
         document.getElementById('cfg_useGPS').checked = state.gpsEnabled;
         document.getElementById('cfg_fieldName').value = state.currentField;
-        
         const sel = document.getElementById('cfg_compareTarget');
         sel.innerHTML = '<option value="">(None)</option>';
         Object.keys(state.fields).forEach(fname => {
             if (fname !== state.currentField) {
-                const opt = document.createElement('option');
-                opt.value = fname;
-                const fd = state.fields[fname].meta?.date || 'No Date';
-                opt.innerText = `${fname} (${fd})`;
+                const opt = document.createElement('option'); opt.value = fname;
+                opt.innerText = `${fname} (${state.fields[fname].meta?.date || 'No Date'})`;
                 if (state.compareTarget === fname) opt.selected = true;
                 sel.appendChild(opt);
             }
         });
-
         document.getElementById('meta_date').value = m.date || '';
         document.getElementById('meta_surveyor').value = m.surveyor || '';
         document.getElementById('meta_crop').value = m.crop || '';
-        
         const locStat = document.getElementById('locationStatus');
-        const link = document.getElementById('mapsLink');
-        if(m.lat && m.lon) {
-            locStat.innerText = `Saved: ${m.lat.toFixed(5)}, ${m.lon.toFixed(5)}`;
-            link.href = `https://www.google.com/maps?q=${m.lat},${m.lon}`;
-            link.classList.remove('hidden');
-        } else {
-            locStat.innerText = "Not set";
-            link.classList.add('hidden');
-        }
-        
+        if(m.lat && m.lon) { locStat.innerText = `Saved: ${m.lat.toFixed(5)}, ${m.lon.toFixed(5)}`; document.getElementById('mapsLink').classList.remove('hidden'); }
+        else { locStat.innerText = "Not set"; document.getElementById('mapsLink').classList.add('hidden'); }
         document.getElementById('configModal').classList.remove('hidden');
     }
 
     function setCurrentLocation() {
         if(!navigator.geolocation) return alert("Geolocation is not supported.");
         navigator.geolocation.getCurrentPosition(pos => {
-            const f = state.fields[state.currentField];
-            if(!f.meta) f.meta = {};
-            f.meta.lat = pos.coords.latitude;
-            f.meta.lon = pos.coords.longitude;
-            openConfig(); 
-            alert("Location saved!");
+            const f = state.fields[state.currentField]; if(!f.meta) f.meta = {};
+            f.meta.lat = pos.coords.latitude; f.meta.lon = pos.coords.longitude;
+            openConfig(); alert("Location saved!");
         });
     }
 
     async function saveFieldConfig() {
         state.gpsEnabled = document.getElementById('cfg_useGPS').checked;
         state.compareTarget = document.getElementById('cfg_compareTarget').value || null;
-
         const oldName = state.currentField;
         const newName = document.getElementById('cfg_fieldName').value.trim();
         if(newName && newName !== oldName) {
             if(state.fields[newName]) return alert("Field name already exists.");
-            state.fields[newName] = state.fields[oldName];
-            delete state.fields[oldName];
-            state.currentField = newName;
-            if (state.compareTarget === oldName) state.compareTarget = newName;
+            state.fields[newName] = state.fields[oldName]; delete state.fields[oldName];
+            state.currentField = newName; if(state.compareTarget===oldName) state.compareTarget=newName;
         }
-
         const f = state.fields[state.currentField];
         ['rows','lines','plants','maxScore'].forEach(k => f.config[k] = parseFloat(document.getElementById(`cfg_${k}`).value));
-        
         if(!f.meta) f.meta = {};
         f.meta.date = document.getElementById('meta_date').value;
         f.meta.surveyor = document.getElementById('meta_surveyor').value;
         f.meta.crop = document.getElementById('meta_crop').value;
-
-        await saveState();
-        document.getElementById('configModal').classList.add('hidden');
-        updateSelector();
-        renderMap();
+        await saveState(); document.getElementById('configModal').classList.add('hidden');
+        updateSelector(); renderMap();
     }
     
     async function resetFieldData() {
-        const fieldName = state.currentField;
-        
-        // 念のためフィールドが存在するか確認
-        if (!state.fields[fieldName]) {
-            alert("Error: Field not found.");
-            return;
-        }
-
-        if(confirm(`⚠️ Clear all DATA for ${fieldName}?`)) {
-            try {
-                // データをリセット（空のオブジェクトにする）
-                state.fields[fieldName].data = {};
-                
-                // データベースへ保存
-                await saveState();
-                
-                // マップと進捗を再描画
-                renderMap();
-                updateProgress();
-                
-                // モーダルを閉じる
-                document.getElementById('configModal').classList.add('hidden');
-                
-                // 完了メッセージ（任意ですが、動作確認のためにあると安心です）
-                // alert("Data has been reset."); 
-            } catch (e) {
-                console.error("Reset failed:", e);
-                alert("Reset failed: " + e.message);
-            }
+        if(!state.fields[state.currentField]) return;
+        if(confirm(`⚠️ Clear all DATA for ${state.currentField}?`)) {
+            state.fields[state.currentField].data = {};
+            await saveState(); renderMap(); updateProgress();
+            document.getElementById('configModal').classList.add('hidden');
         }
     }
-    
     async function deleteCurrentField() {
         if(Object.keys(state.fields).length <= 1) return alert("Cannot delete last field.");
         if(confirm(`Delete field "${state.currentField}"?`)) {
-            delete state.fields[state.currentField];
-            state.currentField = Object.keys(state.fields)[0];
+            delete state.fields[state.currentField]; state.currentField = Object.keys(state.fields)[0];
             await saveState(); updateSelector(); renderMap(); updateProgress(); document.getElementById('configModal').classList.add('hidden');
         }
     }
-
     async function updateSelector() {
-        const tabs = document.getElementById('tabs');
-        tabs.innerHTML = '';
+        const tabs = document.getElementById('tabs'); tabs.innerHTML = '';
         Object.keys(state.fields).forEach(name => {
-            const div = document.createElement('div');
-            div.className = `tab-item ${name === state.currentField ? 'active' : ''}`;
-            div.innerText = name;
-            div.onclick = async () => { state.currentField = name; await saveState(); updateSelector(); renderMap(); updateProgress(); };
+            const div = document.createElement('div'); div.className = `tab-item ${name === state.currentField ? 'active' : ''}`;
+            div.innerText = name; div.onclick = async () => { state.currentField = name; await saveState(); updateSelector(); renderMap(); updateProgress(); };
             tabs.appendChild(div);
         });
-        const addBtn = document.createElement('div');
-        addBtn.className = 'tab-item text-blue-500';
-        addBtn.innerText = '+';
+        const addBtn = document.createElement('div'); addBtn.className = 'tab-item text-blue-500'; addBtn.innerText = '+';
         addBtn.onclick = async () => {
             const n = prompt("New Field Name:");
             if(n && !state.fields[n]) {
                 state.fields[n] = { config: {rows:4, lines:2, plants:5, maxScore:5}, data:{}, systems:{}, meta:{date:'',surveyor:'',crop:''} };
-                state.currentField = n;
-                await saveState(); updateSelector(); renderMap(); updateProgress();
+                state.currentField = n; await saveState(); updateSelector(); renderMap(); updateProgress();
             }
         };
         tabs.appendChild(addBtn);
     }
-    
     async function importSystemNames(e) {
-        const file = e.target.files[0];
-        if(!file) return;
+        const file = e.target.files[0]; if(!file) return;
         const r = new FileReader();
         r.onload = async (ev) => {
             const lines = ev.target.result.split(/\r\n|\n/);
@@ -796,11 +781,9 @@
             lines.forEach(l => {
                 const parts = l.split(',');
                 if(parts.length >= 2) {
-                    const id = parts[0].trim();
-                    const name = parts[1].trim();
+                    const id = parts[0].trim(); const name = parts[1].trim();
                     if(id && name) {
-                        state.fields[state.currentField].systems[id] = name;
-                        count++;
+                        state.fields[state.currentField].systems[id] = name; count++;
                         const nums = id.split('-').map(Number);
                         if(nums.length === 3) { if(nums[0]>maxR)maxR=nums[0]; if(nums[1]>maxL)maxL=nums[1]; if(nums[2]>maxP)maxP=nums[2]; }
                     }
@@ -809,16 +792,14 @@
             if(count > 0 && maxR > 0) {
                 const c = state.fields[state.currentField].config;
                 c.rows = maxR; c.lines = Math.max(c.lines, maxL); c.plants = Math.max(c.plants, maxP);
-                alert(`Imported ${count} systems.\nMap updated.`);
+                alert(`Imported ${count} systems.`);
             }
             await saveState(); renderMap(); e.target.value = '';
         };
         r.readAsText(file);
     }
-
-    /* SHARE */
+    
     function openShareMenu() { document.getElementById('shareModal').classList.remove('hidden'); }
-
     async function backupData(mode) {
         let data, fileName;
         if (mode === 'current') {
@@ -826,22 +807,18 @@
             data = { type: 'field_eval_single', name: fname, content: state.fields[fname], exportedAt: new Date().toISOString() };
             fileName = `FieldEval_${fname}_${new Date().toISOString().slice(0,10)}.json`;
         } else {
-            data = state;
-            fileName = `FieldEval_FULL_BACKUP_${new Date().toISOString().slice(0,10)}.json`;
+            data = state; fileName = `FieldEval_FULL_BACKUP_${new Date().toISOString().slice(0,10)}.json`;
         }
         const json = JSON.stringify(data, null, 2);
         const file = new File([json], fileName, {type: 'application/json'});
         if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-            try { await navigator.share({ title: 'FieldEval Backup', files: [file] }); document.getElementById('shareModal').classList.add('hidden'); return; }
-            catch (err) {}
+            try { await navigator.share({ title: 'FieldEval Backup', files: [file] }); document.getElementById('shareModal').classList.add('hidden'); return; } catch (err) {}
         }
         const url = URL.createObjectURL(file); const a = document.createElement('a'); a.href = url; a.download = fileName; a.click(); URL.revokeObjectURL(url);
         document.getElementById('shareModal').classList.add('hidden');
     }
-
     function restoreData(e) {
-        const file = e.target.files[0];
-        if(!file) return;
+        const file = e.target.files[0]; if(!file) return;
         const r = new FileReader();
         r.onload = async (ev) => {
             try {
@@ -849,20 +826,17 @@
                 if (parsed.type === 'field_eval_single' && parsed.content) {
                     const fname = parsed.name;
                     if(state.fields[fname] && !confirm(`Overwrite field "${fname}"?`)) { e.target.value = ''; return; }
-                    state.fields[fname] = parsed.content;
-                    state.currentField = fname;
+                    state.fields[fname] = parsed.content; state.currentField = fname;
                     await saveState(); alert(`Imported "${fname}"!`); location.reload(); return;
                 }
                 if (parsed.fields && parsed.currentField) {
                     if(!confirm("⚠️ CAUTION: Restore FULL BACKUP?")) { e.target.value = ''; return; }
                     state = parsed; await saveState(); alert("Restore successful!"); location.reload(); return;
                 }
-                throw new Error("Unknown format");
             } catch(err) { alert("Invalid JSON"); }
         };
         r.readAsText(file);
     }
-
     function exportMapImage() {
         document.getElementById('shareModal').classList.add('hidden');
         const element = document.getElementById('fieldMap');
@@ -870,22 +844,15 @@
         element.style.transform = 'scale(1)';
         html2canvas(element, { backgroundColor: state.theme === 'dark' ? '#0f172a' : '#f3f4f6' }).then(canvas => {
             element.style.transform = originalTransform; 
-            const link = document.createElement('a');
-            link.download = `Map_${state.currentField}.png`;
-            link.href = canvas.toDataURL();
-            link.click();
+            const link = document.createElement('a'); link.download = `Map_${state.currentField}.png`; link.href = canvas.toDataURL(); link.click();
         });
     }
-
     function shareCSV() {
-        const fn = state.currentField;
-        const f = state.fields[fn];
-        const m = f.meta || {};
+        const fn = state.currentField; const f = state.fields[fn]; const m = f.meta || {};
         let csv = `# Field: ${fn}\n# Date: ${m.date}\n# Surveyor: ${m.surveyor}\n# Crop: ${m.crop}\n# Location: ${m.lat},${m.lon}\n`;
         csv += "Field,ID,System,Score,Comment,Lat,Lon,Time,HasPhoto\n";
         for(const id in f.data) {
-            const d = f.data[id];
-            const hasP = d.photo ? 'Yes' : 'No';
+            const d = f.data[id]; const hasP = d.photo ? 'Yes' : 'No';
             csv += `${fn},${id},${f.systems[id]||''},${d.score},"${d.comment}",${d.lat||''},${d.lon||''},${d.timestamp||''},${hasP}\n`;
         }
         const blob = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), csv], {type:'text/csv'});
@@ -897,23 +864,65 @@
         }
         document.getElementById('shareModal').classList.add('hidden');
     }
+    async function exportPhotoZip() {
+        document.getElementById('shareModal').classList.add('hidden');
+        const zip = new JSZip(); const fName = state.currentField; const fData = state.fields[fName].data;
+        const fMeta = state.fields[fName].meta || {}; const fSystems = state.fields[fName].systems || {};
+        const dateStr = fMeta.date ? fMeta.date.replace(/-/g, '') : new Date().toISOString().slice(0,10).replace(/-/g, '');
+        let count = 0; let csvContent = "Filename,Field,ID,System,Score,Comment,Date\n";
+        const imgFolder = zip.folder("photos");
+        for (const id in fData) {
+            const item = fData[id];
+            if (item.photo) {
+                const base64Data = item.photo.split(',')[1];
+                const safeFName = fName.replace(/[\\/:*?"<>|]/g, "_");
+                const fileName = `${dateStr}_${safeFName}_${id}.jpg`;
+                imgFolder.file(fileName, base64Data, {base64: true});
+                const sysName = fSystems[id] || ''; const comment = (item.comment || '').replace(/"/g, '""');
+                csvContent += `${fileName},"${fName}","${id}","${sysName}","${item.score}","${comment}","${dateStr}"\n`;
+                count++;
+            }
+        }
+        if (count === 0) { alert("No photos found in this field."); return; }
+        zip.file("photo_list.csv", "\uFEFF" + csvContent);
+        zip.generateAsync({type:"blob"}).then(function(content) {
+            const zipName = `Photos_${fName}_${dateStr}.zip`;
+            const a = document.createElement("a"); a.href = URL.createObjectURL(content); a.download = zipName; a.click(); URL.revokeObjectURL(a.href);
+        });
+    }
+
+    function openGallery() {
+        const fName = state.currentField; const fData = state.fields[fName].data; const fSystems = state.fields[fName].systems || {};
+        const container = document.getElementById('galleryContent'); container.innerHTML = '';
+        let hasPhoto = false;
+        for (const id in fData) {
+            const item = fData[id];
+            if (item.photo) {
+                hasPhoto = true; const sysName = fSystems[id] || '';
+                const div = document.createElement('div'); div.className = 'gallery-item group';
+                div.innerHTML = `<img src="${item.photo}" loading="lazy"><div class="gallery-caption"><div class="text-[10px] text-yellow-300">${id}</div><div class="truncate">${sysName}</div><div class="text-xs text-white">Score: ${item.score}</div></div>`;
+                div.onclick = () => {
+                    document.getElementById('galleryModal').classList.add('hidden');
+                    const cell = document.getElementById(`cell-${id}`);
+                    if(cell) { cell.scrollIntoView({behavior:'smooth', block:'center'}); setTimeout(() => openScoring(id), 300); }
+                };
+                container.appendChild(div);
+            }
+        }
+        if (!hasPhoto) container.innerHTML = '<div class="col-span-full text-center py-10 text-gray-500 font-bold">No photos in this field.</div>';
+        document.getElementById('galleryModal').classList.remove('hidden');
+    }
 
     function openStats() {
-        // ... (Stats Logic Unchanged from v4.5) ...
-        const f = state.fields[state.currentField];
-        const container = document.getElementById('statsContent');
-        container.innerHTML = '';
-        const systemStats = {};
-        const allSystems = new Set(Object.values(f.systems));
+        const f = state.fields[state.currentField]; const container = document.getElementById('statsContent'); container.innerHTML = '';
+        const systemStats = {}; const allSystems = new Set(Object.values(f.systems));
         allSystems.forEach(sys => {
-            if(!sys) return;
-            systemStats[sys] = { counts: {}, total: 0, sum: 0 };
+            if(!sys) return; systemStats[sys] = { counts: {}, total: 0, sum: 0 };
             for(let i=1; i<=f.config.maxScore; i++) systemStats[sys].counts[i] = 0;
             systemStats[sys].counts['N/A'] = 0; systemStats[sys].counts['Miss'] = 0;
         });
         for(const id in f.data) {
-            const sys = f.systems[id];
-            const score = f.data[id].score;
+            const sys = f.systems[id]; const score = f.data[id].score;
             if(sys && systemStats[sys]) {
                 if(score === '評価不能') systemStats[sys].counts['N/A']++;
                 else if(score === '欠株') systemStats[sys].counts['Miss']++;
@@ -930,13 +939,10 @@
         if(Object.keys(systemStats).length === 0) container.innerHTML = '<div class="text-center text-gray-500 py-10">No data.</div>';
         else {
             Object.keys(systemStats).sort().forEach(sys => {
-                const stat = systemStats[sys];
-                const avg = stat.total > 0 ? (stat.sum / stat.total).toFixed(1) : '-';
-                let barsHtml = '';
-                let maxCount = 0; Object.values(stat.counts).forEach(c => maxCount = Math.max(maxCount, c));
+                const stat = systemStats[sys]; const avg = stat.total > 0 ? (stat.sum / stat.total).toFixed(1) : '-';
+                let barsHtml = ''; let maxCount = 0; Object.values(stat.counts).forEach(c => maxCount = Math.max(maxCount, c));
                 for(let i=1; i<=f.config.maxScore; i++) {
-                    const count = stat.counts[i] || 0;
-                    const height = maxCount > 0 ? (count / maxCount) * 100 : 0;
+                    const count = stat.counts[i] || 0; const height = maxCount > 0 ? (count / maxCount) * 100 : 0;
                     barsHtml += `<div class="flex flex-col items-center flex-1"><div class="bar-container w-full items-end justify-center"><div class="bar w-full" style="height: ${height}%" data-count="${count}"></div></div><span class="text-[9px] mt-1 font-bold text-gray-400">${i}</span></div>`;
                 }
                 container.innerHTML += `<div class="bg-gray-50 dark:bg-black/20 p-4 rounded-xl"><div class="flex justify-between items-baseline mb-2"><h4 class="font-bold text-lg" style="color:${getSystemColor(sys)}">${sys}</h4><span class="text-xs font-bold text-gray-500">Avg: ${avg} (n=${stat.total})</span></div><div class="flex gap-2 h-16 items-end px-2">${barsHtml}</div></div>`;
@@ -947,12 +953,9 @@
     function toggleTheme() { state.theme = state.theme === 'light' ? 'dark' : 'light'; applyTheme(state.theme); saveState(); renderMap(); }
     function applyTheme(t) { if(t === 'dark') document.documentElement.classList.add('dark'); else document.documentElement.classList.remove('dark'); }
     function updateProgress() {
-        const f = state.fields[state.currentField];
-        const total = f.config.rows * f.config.lines * f.config.plants;
-        const done = Object.keys(f.data).length;
-        const pct = Math.round((done / total) * 100);
-        document.getElementById('progressBar').style.width = `${pct}%`;
-        document.getElementById('progressText').innerText = `${pct}% DONE`;
+        const f = state.fields[state.currentField]; const total = f.config.rows * f.config.lines * f.config.plants;
+        const done = Object.keys(f.data).length; const pct = Math.round((done / total) * 100);
+        document.getElementById('progressBar').style.width = `${pct}%`; document.getElementById('progressText').innerText = `${pct}% DONE`;
     }
 </script>
 </body>
