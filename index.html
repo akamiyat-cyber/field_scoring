@@ -581,6 +581,23 @@
             updatePhotoPreview(); 
         } 
     }
+    
+    // 写真のプレビュー表示を更新する関数（これが不足していました）
+    function updatePhotoPreview() {
+        const img = document.getElementById('photoPreview');
+        const btn = document.getElementById('deletePhotoBtn');
+        if (tempPhotoData) {
+            img.src = tempPhotoData;
+            img.classList.add('active');
+            btn.classList.remove('hidden');
+            btn.classList.add('flex'); // DELボタンを表示
+        } else {
+            img.src = '';
+            img.classList.remove('active');
+            btn.classList.add('hidden');
+            btn.classList.remove('flex'); // DELボタンを非表示
+        }
+    }
 
     async function saveAndMove(dir) {
         const input = document.querySelector('input[name="score"]:checked');
