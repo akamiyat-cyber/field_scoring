@@ -271,13 +271,13 @@
             <textarea id="comment" class="flex-1 p-4 bg-gray-100 dark:bg-black/30 rounded-2xl h-20 text-sm font-bold resize-none outline-none focus:ring-2 ring-blue-500" placeholder="Comment..."></textarea>
             <div class="flex flex-col gap-1">
                 <label class="w-12 h-9 rounded-lg flex items-center justify-center text-gray-400 bg-gray-100 dark:bg-black/30 hover:text-blue-500 cursor-pointer text-lg" title="カメラを起動">
-                    📷
-                    <input type="file" accept="image/*" capture="environment" class="hidden" onchange="handlePhotoSelect(event)">
-                </label>
+                  📷
+                  <input type="file" id="photoInputCam" accept="image/*" capture="environment" class="hidden" onchange="handlePhotoSelect(event)">
+             </label>
 
-                <label class="w-12 h-9 rounded-lg flex items-center justify-center text-gray-400 bg-gray-100 dark:bg-black/30 hover:text-green-500 cursor-pointer text-lg" title="アルバムから選択">
-                 📂
-                    <input type="file" accept="image/*" class="hidden" onchange="handlePhotoSelect(event)">
+             <label class="w-12 h-9 rounded-lg flex items-center justify-center text-gray-400 bg-gray-100 dark:bg-black/30 hover:text-green-500 cursor-pointer text-lg" title="アルバムから選択">
+                   📂
+                    <input type="file" id="photoInputFile" accept="image/*" class="hidden" onchange="handlePhotoSelect(event)">
                 </label>
 
                 <button id="deletePhotoBtn" onclick="removePhoto()" class="hidden w-12 h-8 rounded-lg items-center justify-center text-red-500 bg-red-100 hover:bg-red-200 text-xs font-bold">DEL</button>
@@ -562,12 +562,24 @@
         };
         r.readAsDataURL(file);
     }
-    function removePhoto() { if(confirm('Delete photo?')) { tempPhotoData = null; document.getElementById('photoInput').value = ''; updatePhotoPreview(); } }
-    function updatePhotoPreview() {
-        const p = document.getElementById('photoPreview');
-        const b = document.getElementById('deletePhotoBtn');
-        if(tempPhotoData) { p.src = tempPhotoData; p.classList.add('active'); b.classList.remove('hidden'); b.classList.add('flex'); }
-        else { p.classList.remove('active'); p.src = ''; b.classList.add('hidden'); b.classList.remove('flex'); }
+    
+    function removePhoto() { 
+        if(confirm('Delete photo?')) { 
+            tempPhotoData = null; 
+            
+            // カメラ用・アルバム用どちらの入力欄もクリアする（エラー回避のため存在確認付き）
+            const camInput = document.getElementById('photoInputCam');
+            if (camInput) camInput.value = '';
+            
+            const fileInput = document.getElementById('photoInputFile');
+            if (fileInput) fileInput.value = '';
+
+            // （念のため古いIDが残っていてもエラーにならないようにケア）
+            const oldInput = document.getElementById('photoInput');
+            if (oldInput) oldInput.value = '';
+
+            updatePhotoPreview(); 
+        } 
     }
 
     async function saveAndMove(dir) {
