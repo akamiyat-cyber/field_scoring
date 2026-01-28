@@ -614,24 +614,46 @@
         });
     }
 
+// 修正版: メモリ消費を抑えた写真処理
     function handlePhotoSelect(e) {
         const file = e.target.files[0];
         if (!file) return;
-        const r = new FileReader();
-        r.onload = function(ev) {
-            const img = new Image();
-            img.onload = function() {
-                const c = document.createElement('canvas');
-                const scale = 1600 / img.width;
-                c.width = 1600; c.height = img.height * scale;
-                c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
-                tempPhotoData = c.toDataURL('image/jpeg', 0.95);
-                updatePhotoPreview();
-            };
-            img.src = ev.target.result;
+
+        // 変更点1: FileReaderではなく、軽量なBlob URLを使用
+        const objectUrl = URL.createObjectURL(file);
+        
+        const img = new Image();
+        img.onload = function() {
+            const c = document.createElement('canvas');
+            // 横幅1600pxにリサイズ（維持）
+            const scale = 1600 / img.width;
+            c.width = 1600;
+            c.height = img.height * scale;
+            
+            const ctx = c.getContext('2d');
+            ctx.drawImage(img, 0, 0, c.width, c.height);
+            
+            // 変更点2: 画質を0.95から0.7に下げる
+            // 見た目はほぼ変わりませんが、データ量が半減し、クラッシュを防ぎます
+            tempPhotoData = c.toDataURL('image/jpeg', 0.7);
+            
+            updatePhotoPreview();
+            
+            // メモリ解放
+            URL.revokeObjectURL(objectUrl);
         };
-        r.readAsDataURL(file);
+        
+        img.onerror = function() {
+            alert("写真の処理に失敗しました。メモリ不足の可能性があります。");
+            URL.revokeObjectURL(objectUrl);
+        };
+
+        img.src = objectUrl;
+        
+        // inputをリセット（同じ写真を連続で選べるようにするため）
+        e.target.value = '';
     }
+    
     function removePhoto() { 
         if(confirm('Delete photo?')) { 
             tempPhotoData = null; 
@@ -818,26 +840,86 @@
         const url = URL.createObjectURL(file); const a = document.createElement('a'); a.href = url; a.download = fileName; a.click(); URL.revokeObjectURL(url);
         document.getElementById('shareModal').classList.add('hidden');
     }
-    function restoreData(e) {
+    
+function restoreData(e) {
         const file = e.target.files[0]; if(!file) return;
         const r = new FileReader();
         r.onload = async (ev) => {
             try {
                 const parsed = JSON.parse(ev.target.result);
+
+                // 【パターンA】単一フィールドのインポート
+                // (先ほど修正したコードと同じロジックです)
                 if (parsed.type === 'field_eval_single' && parsed.content) {
-                    const fname = parsed.name;
-                    if(state.fields[fname] && !confirm(`Overwrite field "${fname}"?`)) { e.target.value = ''; return; }
-                    state.fields[fname] = parsed.content; state.currentField = fname;
-                    await saveState(); alert(`Imported "${fname}"!`); location.reload(); return;
+                    let fname = parsed.name;
+                    if (state.fields[fname]) {
+                        const doOverwrite = confirm(`Field "${fname}" は既に存在します。\n\n[OK] 上書きする\n[キャンセル] 別名で保存する`);
+                        if (!doOverwrite) {
+                            const newName = prompt("新しいフィールド名を入力してください:", fname + " (Copy)");
+                            if (!newName) { e.target.value = ''; return; }
+                            if (state.fields[newName]) { alert(`"${newName}" も既に存在します。中止します。`); e.target.value = ''; return; }
+                            fname = newName;
+                        }
+                    }
+                    state.fields[fname] = parsed.content; 
+                    state.currentField = fname;
+                    await saveState(); 
+                    alert(`"${fname}" をインポートしました！`); 
+                    location.reload(); 
+                    return;
                 }
-                if (parsed.fields && parsed.currentField) {
-                    if(!confirm("⚠️ CAUTION: Restore FULL BACKUP?")) { e.target.value = ''; return; }
-                    state = parsed; await saveState(); alert("Restore successful!"); location.reload(); return;
+
+                // 【パターンB】フルバックアップのインポート（ここを修正しました）
+                if (parsed.fields) {
+                    if(!confirm("⚠️ データのインポートを開始します。\n\n既存のデータは消さずに、バックアップ内の圃場を追加します。\n(同じ名前の圃場がある場合は、個別に確認します)")) { 
+                        e.target.value = ''; return; 
+                    }
+
+                    let addedCount = 0;
+                    let overwrittenCount = 0;
+                    let skippedCount = 0;
+
+                    // バックアップ内の全フィールドをループ処理
+                    for (const fname of Object.keys(parsed.fields)) {
+                        const newFieldData = parsed.fields[fname];
+
+                        if (state.fields[fname]) {
+                            // 名前が重複した場合の確認
+                            if (confirm(`Field "${fname}" は既に存在します。\n\nこの圃場のデータをバックアップの内容で【上書き】してもよろしいですか？\n(キャンセルを押すと、この圃場のみスキップして既存データを残します)`)) {
+                                state.fields[fname] = newFieldData;
+                                overwrittenCount++;
+                            } else {
+                                skippedCount++;
+                            }
+                        } else {
+                            // 新規追加
+                            state.fields[fname] = newFieldData;
+                            addedCount++;
+                        }
+                    }
+
+                    // 現在の選択フィールドがまだ存在するか確認（念のため）
+                    if (!state.fields[state.currentField]) {
+                        state.currentField = Object.keys(state.fields)[0];
+                    }
+
+                    await saveState(); 
+                    alert(`完了しました。\n\n・追加: ${addedCount}件\n・上書き: ${overwrittenCount}件\n・スキップ: ${skippedCount}件`); 
+                    location.reload(); 
+                    return;
                 }
-            } catch(err) { alert("Invalid JSON"); }
+                
+                alert("不明なファイル形式です。");
+            } catch(err) { 
+                console.error(err); 
+                alert("JSONファイルの読み込みに失敗しました。"); 
+            } finally {
+                e.target.value = ''; 
+            }
         };
         r.readAsText(file);
     }
+    
     function exportMapImage() {
         document.getElementById('shareModal').classList.add('hidden');
         const element = document.getElementById('fieldMap');
